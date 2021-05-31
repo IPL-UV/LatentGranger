@@ -1,0 +1,68 @@
+# Config file
+name: "LatentGranger"
+n_gpu: 0
+arch:
+    LatentGranger:
+        encoder:
+            out_features: (256, 128, 64, 32, 16,  4)
+        decoder:
+            out_features: (16, 32, 64, 128, 256)
+        beta: 0.01
+        lag: 4
+    stage: 'causality' # we just use 'causality' for now
+    resume: ""
+    initial_weights: ''
+data:
+    Toy:
+        seed_idx: 0
+        root: './databases/data/toy'
+        input_size: (128,128)
+        dense_input_size: 16384
+        dimension: 1
+        statistics_root: './databases/data/toy/data_py/statistics.npz'
+        nsamples_train: 800
+        nsamples_val: 100
+        nsamples_test: 100
+        batch_size: 1
+        tpb: 100
+    AfricaNDVI1417:
+        seed_idx: 0
+        input_size: (150, 150)
+        dense_input_size: 11338 
+        root: './databases/data/africa_ndvi_noseasonality_2014_2017/'
+        template: 'ndvi_noseasonality_TMSTMP.nc'
+        statistics_root: './databases/data/africa_ndvi_noseasonality_statistics.npz'
+        lr: 
+            train: [2014,2015]
+            val: [2016]
+            test: [2017]
+        causality:
+            train: [2014, 2015, 2016, 2017]
+            val:   [2014, 2015, 2016, 2017]
+            test:  [2014, 2015, 2016, 2017]
+        batch_size: 1
+        tpb: 184
+        root_ENSO: './databases/data/inino34_daily.dat'
+        root_LC: './databases/data/africa_LC.tif'
+data_loader: 
+    device: 'cpu' # 'cpu', 'cuda'
+    num_workers: 8
+    pin_memory: true
+optimizer:
+    type: "Adam"
+    lr: 0.01
+    weight_decay: 0
+    metrics: ["roc_auc"]
+trainer:       
+    epochs: 500
+    save_period: 1
+    verbosity: 2
+    monitor: "min val_loss"
+    early_stop: 10
+    tensorboard: true 
+    codeDir: "./"
+    save_dir: "./predictions"
+    save_predictions: true
+    my_dpi: 96
+visualization:
+    interpretation: false
