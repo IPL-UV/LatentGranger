@@ -40,6 +40,7 @@ class LatentGranger(pl.LightningModule):
         self.lag = int(self.config['arch']['LatentGranger']['lag'])
 
         # read from config
+        self.latent_dim = self.config['arch']['LatentGranger']['latent_dim']  
         self.encoder_out = eval(self.config['arch']['LatentGranger']['encoder']['out_features'])
         self.decoder_out = eval(self.config['arch']['LatentGranger']['decoder']['out_features'])
         self.pin_memory = self.config['data_loader']['pin_memory']
@@ -56,8 +57,8 @@ class LatentGranger(pl.LightningModule):
         self.tpb = self.config['data'][database]['tpb'] 
          
 
-        ### define loss function
-        self.loss_fun = nn.L1Loss()
+        ### define distribution for VAE
+        self.N = torch.distributions.Normal(0,1) 
 
         # Define model layers
         # Encoder
@@ -75,10 +76,13 @@ class LatentGranger(pl.LightningModule):
             in_ = out_
         
 
-        self.latent_layer = nn.BatchNorm1d(out_) 
-        ## initialize weight matrix as orthogonal 
-        torch.nn.init.orthogonal_(self.encoder_layers[-1].weight.data)
+        self.mu_layer = nn.Linear(in_, self.latent_dim) 
+        self.sigma_layer = nn.Linear(in_, self.latent_dim) 
 
+        ## initialize weight matrix as orthogonal 
+        torch.nn.init.orthogonal_(self.mu_layer.weight.data)
+
+        in_ = self.latent_dim
         # Decoder
         self.decoder_layers = nn.ModuleList()
         for out_ in self.decoder_out:
@@ -116,17 +120,20 @@ class LatentGranger(pl.LightningModule):
         # Encoder
         for i in np.arange(len(self.encoder_out)):
             #if i < 2:
-            x = self.drop_layer(x)
+            #x = self.drop_layer(x)
             x = self.encoder_layers[i](x)
             x = nn.LeakyReLU(0.1)(x)
             
+        mu = self.mu_layer(x)   
+        sigma = torch.exp(self.sigma_layer(x)) 
 
-        # apply normalization
-        #x = self.latent_layer(x)
 
+        x = mu + sigma * self.N.sample(mu.shape) 
+        
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
         x_latent = torch.reshape(x, (self.batch_size, self.tpb,-1))
+
         # Decoder
         for i in np.arange(len(self.decoder_out)):
             #if i > 0: ## no dropout on the latent input to the decoder 
@@ -140,48 +147,52 @@ class LatentGranger(pl.LightningModule):
         # Reshape to (b_s, tpb, ...)
         x = torch.reshape(x, (self.batch_size, self.tpb,) + x_shape_or)
         
-        return x, x_latent
+        return x, x_latent, mu, sigma
     
     def training_step(self, batch, idx):
         x, target = batch
 
         # Define training step
-        x_out, x_latent = self(x)
+        x_out, x_latent, mu, sigma = self(x)
         
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
         
-        base_loss = self.loss_fun(x,x_out)
-        loss += base_loss
+
+        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        mse_loss = nn.functional.mse_loss(x_out,x)
+        loss += mse_loss + kl_loss
         
         # Granger loss
-        if self.config['arch']['stage'] == 'causality':
-            Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
-            loss += Granger_loss
-        else:
-            Granger_loss = torch.tensor([0.0])
+        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        loss += Granger_loss
 
-
-        Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
-        #Orth_loss = uncor_loss(x_latent) 
+        Orth_loss = orth_loss(self.mu_layer.weight) 
         loss += Orth_loss 
 
         return {'loss': loss,
-                'base_loss': base_loss.detach().item(),
-                'Granger_loss': Granger_loss.detach().item(),
-                'Orth_loss': Orth_loss.detach().item()}
+                'mse_loss': mse_loss.detach().item(),
+                'kl_loss' : kl_loss.detach().item(),
+                'granger_loss': Granger_loss.detach().item(),
+                'orth_loss': Orth_loss.detach().item()}
     
     def training_epoch_end(self, training_step_outputs):
         # Loggers
         loss = [batch['loss'].detach().cpu().numpy() for batch in training_step_outputs]
         self.logger.experiment[0].add_scalars("losses", {"train": np.nanmean(loss)}, global_step=self.current_epoch)
         self.log('train_loss', np.nanmean(loss), on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        base_loss = np.array([batch['base_loss'] for batch in training_step_outputs])
-        self.logger.experiment[0].add_scalars("base_losses", {"train": np.nanmean(base_loss)}, global_step=self.current_epoch)
-        Granger_loss = np.array([batch['Granger_loss'] for batch in training_step_outputs])
-        self.logger.experiment[0].add_scalars("Granger_losses", {"train": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
-        Orth_loss = np.array([batch['Orth_loss'] for batch in training_step_outputs])
-        self.logger.experiment[0].add_scalars("Orth_losses", {"train": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
+
+        mse_loss = np.array([batch['mse_loss'] for batch in training_step_outputs])
+        self.logger.experiment[0].add_scalars("mse_losses", {"train": np.nanmean(mse_loss)}, global_step=self.current_epoch)
+
+        kl_loss = np.array([batch['kl_loss'] for batch in training_step_outputs])
+        self.logger.experiment[0].add_scalars("kl_losses", {"train": np.nanmean(kl_loss)}, global_step=self.current_epoch)
+
+        Granger_loss = np.array([batch['granger_loss'] for batch in training_step_outputs])
+        self.logger.experiment[0].add_scalars("granger_losses", {"train": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
+
+        Orth_loss = np.array([batch['orth_loss'] for batch in training_step_outputs])
+        self.logger.experiment[0].add_scalars("orth_losses", {"train": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
         
 
         
@@ -189,84 +200,94 @@ class LatentGranger(pl.LightningModule):
         x, target = batch
         
         # Define training step
-        x_out, x_latent = self(x)
+        x_out, x_latent, mu, sigma = self(x)
         
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
 
-        base_loss = self.loss_fun(x,x_out)
-        loss += base_loss
+
+        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        mse_loss = nn.functional.mse_loss(x_out,x)
+        loss += mse_loss + kl_loss
         
         # Granger loss
-        if self.config['arch']['stage'] == 'causality':
-            Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
-            loss += Granger_loss
-        else:
-            Granger_loss = torch.tensor([0.0])
+        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        loss += Granger_loss
 
-
-        Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
-        #Orth_loss = uncor_loss(x_latent) 
+        Orth_loss = orth_loss(self.mu_layer.weight) 
         loss += Orth_loss 
 
         return {'val_loss': loss,
-                'val_base_loss': base_loss.detach().item(),
-                'val_Granger_loss': Granger_loss.detach().item(),
-                'val_Orth_loss': Orth_loss.detach().item()}
+                'val_mse_loss': mse_loss.detach().item(),
+                'val_kl_loss': kl_loss.detach().item(),
+                'val_granger_loss': Granger_loss.detach().item(),
+                'val_orth_loss': Orth_loss.detach().item()}
 
     def validation_epoch_end(self, validation_step_outputs):
         # Loggers
         loss = [batch['val_loss'].detach().cpu().numpy() for batch in validation_step_outputs]
         self.logger.experiment[0].add_scalars("losses", {"val": np.nanmean(loss)}, global_step=self.current_epoch)
         self.log('val_loss', np.nanmean(loss), on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        base_loss = np.array([batch['val_base_loss'] for batch in validation_step_outputs])
-        self.logger.experiment[0].add_scalars("base_losses", {"val": np.nanmean(base_loss)}, global_step=self.current_epoch)
-        Granger_loss = np.array([batch['val_Granger_loss'] for batch in validation_step_outputs])
-        self.logger.experiment[0].add_scalars("Granger_losses", {"val": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
-        Orth_loss = np.array([batch['val_Orth_loss'] for batch in validation_step_outputs])
-        self.logger.experiment[0].add_scalars("Orth_losses", {"val": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
+
+        mse_loss = np.array([batch['val_mse_loss'] for batch in validation_step_outputs])
+        self.logger.experiment[0].add_scalars("mse_losses", {"val": np.nanmean(mse_loss)}, global_step=self.current_epoch)
+
+        kl_loss = np.array([batch['val_kl_loss'] for batch in validation_step_outputs])
+        self.logger.experiment[0].add_scalars("kl_losses", {"val": np.nanmean(kl_loss)}, global_step=self.current_epoch)
+
+
+        Granger_loss = np.array([batch['val_granger_loss'] for batch in validation_step_outputs])
+        self.logger.experiment[0].add_scalars("granger_losses", {"val": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
+
+        Orth_loss = np.array([batch['val_orth_loss'] for batch in validation_step_outputs])
+        self.logger.experiment[0].add_scalars("orth_losses", {"val": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
         
 
     def test_step(self, batch, idx):
         x, target = batch
         
         # Define training step
-        x_out, x_latent = self(x)
+        x_out, x_latent, mu, sigma = self(x)
         
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
         
-        base_loss = self.loss_fun(x,x_out)
-        loss += base_loss
+
+        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        mse_loss = nn.functional.mse_loss(x_out,x)
+        loss += mse_loss + kl_loss       
+
+        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        loss += Granger_loss
         
-        # Granger loss
-        if self.config['arch']['stage'] == 'causality':
-            Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
-            loss += Granger_loss
-        else:
-            Granger_loss = torch.tensor([0.0])
-        
-        Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
-        #Orth_loss = uncor_loss(x_latent) 
+        Orth_loss = orth_loss(self.mu_layer.weight) 
         loss += Orth_loss 
 
         # Loggers
         return {'test_loss': loss,
-                'test_base_loss': base_loss.detach().item(),
-                'test_Granger_loss': Granger_loss.detach().item(),
-                'test_Orth_loss': Orth_loss.detach().item()}
+                'test_mse_loss': mse_loss.detach().item(),
+                'test_kl_loss': kl_loss.detach().item(),
+                'test_granger_loss': Granger_loss.detach().item(),
+                'test_orth_loss': Orth_loss.detach().item()}
     
     def test_epoch_end(self, test_step_outputs):
         # Loggers
         loss = [batch['test_loss'].detach().cpu().numpy() for batch in test_step_outputs]
         self.logger.experiment[0].add_scalars("losses", {"test": np.nanmean(loss)}, global_step=self.current_epoch)
         self.log('test_loss', np.nanmean(loss), on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        base_loss = np.array([batch['test_base_loss'] for batch in test_step_outputs])
-        self.logger.experiment[0].add_scalars("base_losses", {"test": np.nanmean(base_loss)}, global_step=self.current_epoch)
-        Granger_loss = np.array([batch['test_Granger_loss'] for batch in test_step_outputs])
-        self.logger.experiment[0].add_scalars("Granger_losses", {"test": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
-        Orth_loss = np.array([batch['test_Orth_loss'] for batch in test_step_outputs])
-        self.logger.experiment[0].add_scalars("Orth_losses", {"test": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
+
+        mse_loss = np.array([batch['test_mse_loss'] for batch in test_step_outputs])
+        self.logger.experiment[0].add_scalars("mse_losses", {"test": np.nanmean(mse_loss)}, global_step=self.current_epoch)
+
+        kl_loss = np.array([batch['test_kl_loss'] for batch in test_step_outputs])
+        self.logger.experiment[0].add_scalars("kl_losses", {"test": np.nanmean(kl_loss)}, global_step=self.current_epoch)
+
+
+        Granger_loss = np.array([batch['test_granger_loss'] for batch in test_step_outputs])
+        self.logger.experiment[0].add_scalars("granger_losses", {"test": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
+
+        Orth_loss = np.array([batch['test_orth_loss'] for batch in test_step_outputs])
+        self.logger.experiment[0].add_scalars("orth_losses", {"test": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
         
 
     def configure_optimizers(self):
