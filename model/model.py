@@ -3,27 +3,19 @@
 """
 LatentGranger Model Class
 
+BSD 3-Clause License (see LICENSE file)
 
-Anonymized code submitted alongide 
-the manuscript titled 
-Learning Granger Causal Feature Representations 
-
-please do not distribute
+Copyright (c) Image and Signaling Process Group (ISP) IPL-UV 2021, 
+All rights reserved.
 """
 
-import os
-import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
 import pytorch_lightning as pl
-import matplotlib.pyplot as plt
 from utils import * 
 from .loss import *
-
-from PIL import Image
 
 # Databases
 from torch.utils.data import DataLoader
@@ -64,6 +56,9 @@ class LatentGranger(pl.LightningModule):
         self.tpb = self.config['data'][database]['tpb'] 
          
 
+        ### define loss function
+        self.loss_fun = nn.L1Loss()
+
         # Define model layers
         # Encoder
         self.encoder_layers = nn.ModuleList()
@@ -80,6 +75,10 @@ class LatentGranger(pl.LightningModule):
             in_ = out_
         
 
+        self.latent_layer = nn.BatchNorm1d(out_) 
+        ## initialize weight matrix as orthogonal 
+        torch.nn.init.orthogonal_(self.encoder_layers[-1].weight.data)
+
         # Decoder
         self.decoder_layers = nn.ModuleList()
         for out_ in self.decoder_out:
@@ -89,10 +88,12 @@ class LatentGranger(pl.LightningModule):
         # Output
         self.output_layer = nn.Linear(in_, self.input_size)
 
+        self.drop_layer = nn.Dropout(p=0.4)
+
         
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size,
-                              shuffle=True, num_workers=self.num_workers,
+                              shuffle=False, num_workers=self.num_workers,
                               pin_memory=self.pin_memory)
 
     def val_dataloader(self):
@@ -114,17 +115,23 @@ class LatentGranger(pl.LightningModule):
         
         # Encoder
         for i in np.arange(len(self.encoder_out)):
+            #if i < 2:
+            x = self.drop_layer(x)
             x = self.encoder_layers[i](x)
-            #if i < len(self.encoder_out) - 1:
             x = nn.LeakyReLU(0.1)(x)
             
+
+        # apply normalization
+        #x = self.latent_layer(x)
+
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
         x_latent = torch.reshape(x, (self.batch_size, self.tpb,-1))
         # Decoder
         for i in np.arange(len(self.decoder_out)):
+            #if i > 0: ## no dropout on the latent input to the decoder 
+            #x = self.drop_layer(x)
             x = self.decoder_layers[i](x)
-            #if i < len(self.decoder_out) - 1: 
             x = nn.LeakyReLU(0.1)(x)
                     
         # Output
@@ -144,8 +151,8 @@ class LatentGranger(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
         
-        MSE_loss = nn.MSELoss(reduction='mean')(x,x_out)
-        loss += MSE_loss
+        base_loss = self.loss_fun(x,x_out)
+        loss += base_loss
         
         # Granger loss
         if self.config['arch']['stage'] == 'causality':
@@ -153,20 +160,30 @@ class LatentGranger(pl.LightningModule):
             loss += Granger_loss
         else:
             Granger_loss = torch.tensor([0.0])
-        
+
+
+        Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
+        #Orth_loss = uncor_loss(x_latent) 
+        loss += Orth_loss 
+
         return {'loss': loss,
-                'MSE_loss': MSE_loss.detach().item(),
-                'Granger_loss': Granger_loss.detach().item()}
+                'base_loss': base_loss.detach().item(),
+                'Granger_loss': Granger_loss.detach().item(),
+                'Orth_loss': Orth_loss.detach().item()}
     
     def training_epoch_end(self, training_step_outputs):
         # Loggers
         loss = [batch['loss'].detach().cpu().numpy() for batch in training_step_outputs]
         self.logger.experiment[0].add_scalars("losses", {"train": np.nanmean(loss)}, global_step=self.current_epoch)
         self.log('train_loss', np.nanmean(loss), on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        MSE_loss = np.array([batch['MSE_loss'] for batch in training_step_outputs])
-        self.logger.experiment[0].add_scalars("MSE_losses", {"train": np.nanmean(MSE_loss)}, global_step=self.current_epoch)
+        base_loss = np.array([batch['base_loss'] for batch in training_step_outputs])
+        self.logger.experiment[0].add_scalars("base_losses", {"train": np.nanmean(base_loss)}, global_step=self.current_epoch)
         Granger_loss = np.array([batch['Granger_loss'] for batch in training_step_outputs])
         self.logger.experiment[0].add_scalars("Granger_losses", {"train": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
+        Orth_loss = np.array([batch['Orth_loss'] for batch in training_step_outputs])
+        self.logger.experiment[0].add_scalars("Orth_losses", {"train": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
+        
+
         
     def validation_step(self, batch, idx): 
         x, target = batch
@@ -177,8 +194,8 @@ class LatentGranger(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
 
-        MSE_loss = nn.MSELoss(reduction='mean')(x,x_out)
-        loss += MSE_loss
+        base_loss = self.loss_fun(x,x_out)
+        loss += base_loss
         
         # Granger loss
         if self.config['arch']['stage'] == 'causality':
@@ -186,20 +203,29 @@ class LatentGranger(pl.LightningModule):
             loss += Granger_loss
         else:
             Granger_loss = torch.tensor([0.0])
-        
+
+
+        Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
+        #Orth_loss = uncor_loss(x_latent) 
+        loss += Orth_loss 
+
         return {'val_loss': loss,
-                'val_MSE_loss': MSE_loss.detach().item(),
-                'val_Granger_loss': Granger_loss.detach().item()}
+                'val_base_loss': base_loss.detach().item(),
+                'val_Granger_loss': Granger_loss.detach().item(),
+                'val_Orth_loss': Orth_loss.detach().item()}
 
     def validation_epoch_end(self, validation_step_outputs):
         # Loggers
         loss = [batch['val_loss'].detach().cpu().numpy() for batch in validation_step_outputs]
         self.logger.experiment[0].add_scalars("losses", {"val": np.nanmean(loss)}, global_step=self.current_epoch)
         self.log('val_loss', np.nanmean(loss), on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        MSE_loss = np.array([batch['val_MSE_loss'] for batch in validation_step_outputs])
-        self.logger.experiment[0].add_scalars("MSE_losses", {"val": np.nanmean(MSE_loss)}, global_step=self.current_epoch)
+        base_loss = np.array([batch['val_base_loss'] for batch in validation_step_outputs])
+        self.logger.experiment[0].add_scalars("base_losses", {"val": np.nanmean(base_loss)}, global_step=self.current_epoch)
         Granger_loss = np.array([batch['val_Granger_loss'] for batch in validation_step_outputs])
         self.logger.experiment[0].add_scalars("Granger_losses", {"val": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
+        Orth_loss = np.array([batch['val_Orth_loss'] for batch in validation_step_outputs])
+        self.logger.experiment[0].add_scalars("Orth_losses", {"val": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
+        
 
     def test_step(self, batch, idx):
         x, target = batch
@@ -210,8 +236,8 @@ class LatentGranger(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
         
-        MSE_loss = nn.MSELoss(reduction='mean')(x,x_out)
-        loss += MSE_loss
+        base_loss = self.loss_fun(x,x_out)
+        loss += base_loss
         
         # Granger loss
         if self.config['arch']['stage'] == 'causality':
@@ -220,21 +246,29 @@ class LatentGranger(pl.LightningModule):
         else:
             Granger_loss = torch.tensor([0.0])
         
+        Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
+        #Orth_loss = uncor_loss(x_latent) 
+        loss += Orth_loss 
+
         # Loggers
         return {'test_loss': loss,
-                'test_MSE_loss': MSE_loss.detach().item(),
-                'test_Granger_loss': Granger_loss.detach().item()}
+                'test_base_loss': base_loss.detach().item(),
+                'test_Granger_loss': Granger_loss.detach().item(),
+                'test_Orth_loss': Orth_loss.detach().item()}
     
     def test_epoch_end(self, test_step_outputs):
         # Loggers
         loss = [batch['test_loss'].detach().cpu().numpy() for batch in test_step_outputs]
         self.logger.experiment[0].add_scalars("losses", {"test": np.nanmean(loss)}, global_step=self.current_epoch)
         self.log('test_loss', np.nanmean(loss), on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        MSE_loss = np.array([batch['test_MSE_loss'] for batch in test_step_outputs])
-        self.logger.experiment[0].add_scalars("MSE_losses", {"test": np.nanmean(MSE_loss)}, global_step=self.current_epoch)
+        base_loss = np.array([batch['test_base_loss'] for batch in test_step_outputs])
+        self.logger.experiment[0].add_scalars("base_losses", {"test": np.nanmean(base_loss)}, global_step=self.current_epoch)
         Granger_loss = np.array([batch['test_Granger_loss'] for batch in test_step_outputs])
         self.logger.experiment[0].add_scalars("Granger_losses", {"test": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
+        Orth_loss = np.array([batch['test_Orth_loss'] for batch in test_step_outputs])
+        self.logger.experiment[0].add_scalars("Orth_losses", {"test": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
         
+
     def configure_optimizers(self):
         # build optimizer
         trainable_params = filter(lambda p: p.requires_grad, self.parameters())

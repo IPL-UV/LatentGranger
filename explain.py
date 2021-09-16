@@ -27,6 +27,7 @@ from PIL import Image
 # Model
 import model 
 from model import lag_cor  
+from model import granger_loss 
 from utils import *
 
 # PyTorch Captum for XAI
@@ -117,10 +118,16 @@ x = torch.reshape(x, (1,) + x.shape)
 x.requires_grad_()
 target = torch.reshape(target, (1,) + target.shape)
 
+model.eval()
 x_out, latent = model(x)
+
 for j in range(latent.shape[-1]):
     corr = lag_cor(latent[:,:,j], target, lag = model.lag) 
     print(f'lagged correlation with target of {j}th latent: {corr}')
+
+gloss = granger_loss(latent, target, maxlag = model.lag)
+
+print(f'granger losss: {gloss}')
 
 
 if args.save:
@@ -148,8 +155,8 @@ else:
     mask = data.LC > 0  
 
 tpb = model.tpb 
-imout[mask, 0] = x.detach().numpy()[0, 0, :]
-imout[mask, 1] = x_out.detach().numpy()[0, 0, :]
+imout[mask, 0] = x.detach().numpy()[0, -1, :]
+imout[mask, 1] = x_out.detach().numpy()[0, -1, :]
 imout[mask, 2] = (imout[mask, 0] - imout[mask, 1])**2
 if args.grad:
     for j in range(latent.shape[-1]):
@@ -188,19 +195,25 @@ if args.extract:
 
 if args.nig:
 
-    for j in range(4):
+    baseline = torch.Tensor(np.zeros(x.shape, dtype="float32"))
+    out_base, latent_base = model(baseline) 
+    diff_latents = (latent - latent_base).detach().numpy()
+
+    for j in range(1):
         # Baseline for Integrated Gradients
         # Zeros (default)
-        baseline = torch.Tensor(np.zeros(x.shape, dtype="float32"))
             
+        print(diff_latents.shape)
         # 1) NeuronIntegratedGradients, to see, for each latent representation,
         # the attribution to each of the input spatial locations in features (e.g. NDVI)
-        nig = NeuronIntegratedGradients(model, model.encoder_layers[-1])
+        nig = NeuronIntegratedGradients(model, model.encoder_layers[-1], multiply_by_inputs = False)
 
         attr_maps = nig.attribute(x,(j,), baselines=baseline, internal_batch_size=1)
+        print(attr_maps.shape)
+        attr_maps = attr_maps
         os.makedirs(os.path.join(savedir, f'nig{j}'), exist_ok = True)
         for i in range(tpb):
             imgarray = np.zeros(mask.shape)
-            imgarray[mask] = attr_maps.detach().numpy()[0,i,:] 
+            imgarray[mask] = np.abs(attr_maps.detach().numpy()[0,i,:])
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))

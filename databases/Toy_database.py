@@ -25,7 +25,6 @@ class Toy(torch.utils.data.Dataset):
         self.processing_mode = processing_mode
         self.root = self.config['root']
         self.targetpath = os.path.join(self.root, "target.txt")
-        self.truepath = os.path.join(self.root, "true.txt")
         self.nsamples_train = self.config['nsamples_train']
         self.nsamples_test = self.config['nsamples_test']
         self.nsamples_val = self.config['nsamples_val']
@@ -42,18 +41,21 @@ class Toy(torch.utils.data.Dataset):
             ],
         )
 
-        self.target = np.loadtxt(self.targetpath)
-        self.true = np.loadtxt(self.truepath)        
+        target = np.loadtxt(self.targetpath)
         
         
         if self.mode == 'train':
             self._input_img_paths = self._input_img_paths[:self.nsamples_train]
+            self.target = target[:self.nsamples_train]
         elif self.mode == 'val':
+            self.target = target[self.nsamples_train:self.nsamples_train+self.nsamples_val]
             self._input_img_paths = \
                 self._input_img_paths[self.nsamples_train:self.nsamples_train+self.nsamples_val]
         elif self.mode == 'test':
+            self.target = target[self.nsamples_train+self.nsamples_val:self.nsamples_train+self.nsamples_val + self.nsamples_test]
             self._input_img_paths = \
-                self._input_img_paths[self.nsamples_train+self.nsamples_val:]
+                self._input_img_paths[self.nsamples_train+self.nsamples_val:self.nsamples_train+self.nsamples_val + self.nsamples_test]
+
 
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""

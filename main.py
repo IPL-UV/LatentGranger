@@ -65,7 +65,7 @@ def main(config, arch, database):
                                           save_last=True, save_top_k=5)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=500, 
                                    verbose=True, mode='min', strict=True)
-    callbacks = [checkpoint_callback, early_stopping]
+    callbacks = [checkpoint_callback]  #, early_stopping]
 
     # Trainer
     # Resume from checkpoint
@@ -82,7 +82,8 @@ def main(config, arch, database):
                          num_sanity_val_steps=2,
                          reload_dataloaders_every_epoch=True,
                          replace_sampler_ddp=False, resume_from_checkpoint=resume, 
-                         val_check_interval=1.0, weights_summary='full') 
+                         val_check_interval=1.0, weights_summary='full',
+                         limit_train_batches = 1) 
                 
     # Training
     trainer.fit(model)
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     # ArgParse
     parser = argparse.ArgumentParser(description="ArgParse")
     parser.add_argument('-c', '--config', default='configs/config.yaml', type=str,
-                      help='config file path (default: None)')
+                      help='config file path (default: configs/config.yaml)')
     parser.add_argument('-a', '--arch', default='LatentGranger', type=str,
                       help='arch name (default: LatentGranger)')
     parser.add_argument('-d', '--database', default='Toy', type=str,
@@ -112,7 +113,6 @@ if __name__ == '__main__':
         # The FullLoader parameter handles the conversion from YAML
         # scalar values to Python dictionary format
         config = yaml.load(file, Loader=yaml.FullLoader)
-        # print(config)
 
     if args.beta >= 0:
         config['arch'][args.arch]['beta'] = args.beta
