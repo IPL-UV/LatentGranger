@@ -19,7 +19,7 @@ class Toy(torch.utils.data.Dataset):
     Toy database loader. 
     """
 
-    def __init__(self, config, mode='train', processing_mode = 'dense', stage = 'causality'):
+    def __init__(self, config, mode='train', processing_mode = 'dense'):
         self.config = config
         self.mode = mode
         self.processing_mode = processing_mode

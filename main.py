@@ -82,8 +82,7 @@ def main(config, arch, database):
                          num_sanity_val_steps=2,
                          reload_dataloaders_every_epoch=True,
                          replace_sampler_ddp=False, resume_from_checkpoint=resume, 
-                         val_check_interval=1.0, weights_summary='full',
-                         limit_train_batches = 1) 
+                         val_check_interval=1.0, weights_summary='full') 
                 
     # Training
     trainer.fit(model)

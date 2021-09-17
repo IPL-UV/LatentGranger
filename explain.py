@@ -17,6 +17,8 @@ import argparse, yaml
 from datetime import datetime
 from shutil import copyfile
 
+
+import netCDF4 as nc
 from natsort import natsorted
 import torch
 import pytorch_lightning as pl
@@ -186,9 +188,20 @@ if args.extract:
 
 if args.nig:
 
-    baseline = torch.Tensor(np.zeros(x.shape, dtype="float32"))
-    #out_base, latent_base = model(baseline) 
+    baseline = np.zeros(x.shape, dtype="float32")
+    
+    
+    if args.database == 'AfricaNDVI':
+       days = np.linspace(5, 365, 46, dtype = int)  
+       template = 'databases/data/africa_ndvi_seasonality/ndvi_seasonality_TMSTMP.nc'
+       paths = [os.path.join(template.replace('TMSTMP', f'{day:03}')) 
+            for day in days]  
+       for j, path in enumerate(paths):
+           data = nc.Dataset(path)
+           val = np.array(data['ndvi'])
+           baseline[0, j + 46 * np.arange(3), :] = val[mask] 
 
+    baseline = torch.Tensor(baseline)
     nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = True)
 
     for j in range(1):

@@ -45,13 +45,12 @@ class LatentGranger(pl.LightningModule):
         self.decoder_out = eval(self.config['arch']['LatentGranger']['decoder']['out_features'])
         self.pin_memory = self.config['data_loader']['pin_memory']
         self.num_workers = int(self.config['data_loader']['num_workers'])
-        self.stage = self.config['arch']['stage']
 
         # Define datasets
         data = getattr(databases, database) 
-        self.data_train = data(self.config['data'][database], 'train', 'dense', self.stage) 
-        self.data_val = data(self.config['data'][database], 'val', 'dense', self.stage) 
-        self.data_test = data(self.config['data'][database], 'test', 'dense', self.stage) 
+        self.data_train = data(self.config['data'][database], 'train', 'dense') 
+        self.data_val = data(self.config['data'][database], 'val', 'dense') 
+        self.data_test = data(self.config['data'][database], 'test', 'dense') 
 
         self.batch_size = self.config['data'][database]['batch_size']
         self.tpb = self.config['data'][database]['tpb'] 
