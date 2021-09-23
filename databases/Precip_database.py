@@ -37,7 +37,7 @@ class precip(torch.utils.data.Dataset):
         self.tpb = config['tpb']
 
         self.years = config['years']
-        days = np.linspace(5, 357, 45, dtype = int)  
+        #days = np.linspace(5, 357, 45, dtype = int)  
 
         self.nsamples_train = self.config['nsamples_train']
         self.nsamples_test = self.config['nsamples_test']
@@ -58,13 +58,13 @@ class precip(torch.utils.data.Dataset):
         # Load ENSO
         ENSO = np.loadtxt(self.config['root_ENSO'], comments='#')
         # Mean filter to adapt ENSO resolution to feature resolution
-        ENSO[:,1] = uniform_filter1d(ENSO[:,1], 8)
+        #ENSO[:,1] = uniform_filter1d(ENSO[:,1], 8)
 
         
         self.target = [] 
         for year in self.years:
             ENSO_tmp = ENSO[np.where(np.array([str(int(t))[:4] for t in ENSO[:,0]])==str(year))[0],:]
-            ENSO_tmp = ENSO_tmp[days - 1,:]
+            #ENSO_tmp = ENSO_tmp[days - 1,:]
             self.target.append(ENSO_tmp)
         self.target = np.concatenate(self.target)[:,1]
 

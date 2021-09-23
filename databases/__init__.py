@@ -6,5 +6,6 @@ NDVI = NDVI
 AfricaNDVI = NDVI
 AfricaNDVIns = NDVI
 AfricaPrecip = precip
+AfricaPrecipns = precip
 
 
