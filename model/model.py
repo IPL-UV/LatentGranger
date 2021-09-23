@@ -48,13 +48,13 @@ class LatentGranger(pl.LightningModule):
 
         # Define datasets
         data = getattr(databases, database) 
-        self.data_train = data(self.config['data'][database], 'train', 'dense') 
-        self.data_val = data(self.config['data'][database], 'val', 'dense') 
-        self.data_test = data(self.config['data'][database], 'test', 'dense') 
+        self.data_train = data(self.config['data'][database], 'train', '2d') 
+        self.data_val = data(self.config['data'][database], 'val', '2d') 
+        self.data_test = data(self.config['data'][database], 'test', '2d') 
 
         self.batch_size = self.config['data'][database]['batch_size']
         self.tpb = self.config['data'][database]['tpb'] 
-         
+        self.input_size = eval(self.config['data'][database]['input_size'])
 
         ### define distribution for VAE
         self.N = torch.distributions.Normal(0,1) 
@@ -62,36 +62,39 @@ class LatentGranger(pl.LightningModule):
         # Define model layers
         # Encoder
         self.encoder_layers = nn.ModuleList()
-        ### mode should be always dense here this is the dense autoencoder
-        mode = 'dense'
-        if mode == 'dense':
-            self.input_size =  self.config['data'][database]['dense_input_size']
-        else:
-            self.input_size = np.prod(eval(self.config['data'][database]['input_size']))
-
-        in_ = self.input_size 
+        
+        
+        mode = '2d'
+        in_ = 1
         for out_ in self.encoder_out:
-            self.encoder_layers.append(nn.Linear(in_, out_))
+            self.encoder_layers.append(nn.Conv2d(in_, out_, kernel_size = 3, padding = 'same'))
             in_ = out_
         
+        self.w_reduced = int( self.input_size[0] // (2**len(self.encoder_out)))
+        self.h_reduced = int( self.input_size[1] // (2**len(self.encoder_out)))
+        self.hw_reduced = self.w_reduced * self.h_reduced 
 
-        self.mu_layer = nn.Linear(in_, self.latent_dim) 
-        self.sigma_layer = nn.Linear(in_, self.latent_dim) 
+        self.flatten = nn.Flatten()
+        self.mu_layer = nn.Linear(in_ * self.hw_reduced , self.latent_dim) 
+        self.sigma_layer = nn.Linear(in_ * self.hw_reduced , self.latent_dim) 
 
         ## initialize weight matrix as orthogonal 
         torch.nn.init.orthogonal_(self.mu_layer.weight.data)
 
         in_ = self.latent_dim
+
+        self.decoder_init = nn.Linear(in_, self.hw_reduced)
+
         # Decoder
+        in_ = 1
         self.decoder_layers = nn.ModuleList()
         for out_ in self.decoder_out:
-            self.decoder_layers.append(nn.Linear(in_, out_))                                     
+            self.decoder_layers.append(nn.Conv2d(in_, out_, kernel_size = 3, padding = 'same'))
             in_ = out_
                                        
-        # Output
-        self.output_layer = nn.Linear(in_, self.input_size)
-
-        self.drop_layer = nn.Dropout(p=0.4)
+        self.pool = nn.MaxPool2d(2 , 2)
+        self.upsample = nn.Upsample(scale_factor = 2) 
+        self.final_upsample = nn.Upsample(size = self.input_size) 
 
         
     def train_dataloader(self):
@@ -112,37 +115,44 @@ class LatentGranger(pl.LightningModule):
     def forward(self, x):
         # Define forward pass
     
+
         # Reshape to (b_s*tpb, ...)
         x_shape_or = np.shape(x)[2:]
-        x = torch.reshape(x, (self.batch_size*self.tpb,) + x_shape_or)
+        x = torch.reshape(x, (self.batch_size*self.tpb,) + (1,) +  self.input_size)  
         
+         
         # Encoder
         for i in np.arange(len(self.encoder_out)):
-            #if i < 2:
-            #x = self.drop_layer(x)
             x = self.encoder_layers[i](x)
-            x = nn.LeakyReLU(0.1)(x)
+            x = nn.LeakyReLU(0.01)(x)
+            x = self.pool(x)
+
             
+        x = self.flatten(x)
+
         mu = self.mu_layer(x)   
         sigma = torch.exp(self.sigma_layer(x)) 
-
 
         x = mu + sigma * self.N.sample(mu.shape) 
         
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
         x_latent = torch.reshape(x, (self.batch_size, self.tpb,-1))
+       
+        x = self.decoder_init(x) 
+        x = torch.reshape(x, (self.batch_size * self.tpb,) + (1,) + (self.w_reduced, self.h_reduced)) 
 
         # Decoder
         for i in np.arange(len(self.decoder_out)):
-            #if i > 0: ## no dropout on the latent input to the decoder 
-            #x = self.drop_layer(x)
             x = self.decoder_layers[i](x)
-            x = nn.LeakyReLU(0.1)(x)
-                    
-        # Output
-        x = self.output_layer(x)
-        
+            if i < len(self.decoder_out) - 1:
+               x = nn.LeakyReLU(0.01)(x)
+            x = self.upsample(x)
+                   
+        # final upsample to match initial size
+        # this is needed if the original size is not divisible for 2**(num. layer. encoder/decoder)   
+        x = self.final_upsample(x)
+
         # Reshape to (b_s, tpb, ...)
         x = torch.reshape(x, (self.batch_size, self.tpb,) + x_shape_or)
         

@@ -152,18 +152,19 @@ else:
     imout = np.zeros(data.LC.shape + (3,), dtype = float)
     mask = data.LC > 0  
 
+print(x.shape)
 tpb = model.tpb 
-imout[mask, 0] = x.detach().numpy()[0, -1, :]
-imout[mask, 1] = x_out.detach().numpy()[0, -1, :]
-imout[mask, 2] = (imout[mask, 0] - imout[mask, 1])**2
+imout[:,:, 0] = x.detach().numpy()[0, -1, :, :, 0]
+imout[:,:, 1] = x_out.detach().numpy()[0, -1, :, :, 0]
+imout[:,:, 2] = (imout[:,:, 0] - imout[:,:, 1])**2
 if args.grad:
     for j in range(latent.shape[-1]):
         grad = np.zeros(x.shape[1:]) 
         for i in range(tpb): 
             mu[i,j].backward(retain_graph = True)
-            grad[i,:] += x.grad.numpy()[0,i,:]
+            grad[i,:, :] += x.grad.numpy()[0,i,:,:]
             x.grad.fill_(0.0)
-        avg[:,:,j][mask] = grad.mean(0)
+        avg[:,:,j] = grad.mean(0)[:,:,0]
         
 
 if args.save:
