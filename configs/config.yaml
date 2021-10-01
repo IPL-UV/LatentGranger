@@ -4,10 +4,10 @@ n_gpu: 0
 arch:
     LatentGranger:
         encoder:
-            out_features: (1024, 512, 256, 128)
-        latent_dim: 20
+            out_features: (1024, 512, 256)
+        latent_dim: 4
         decoder:
-            out_features: (128, 256, 512, 1024)
+            out_features: (256, 512, 1024)
         beta: 0.01
         lag: 4
     resume: ""
@@ -24,7 +24,7 @@ data:
         nsamples_val: 300
         nsamples_test: 300
         batch_size: 1
-        tpb: 300
+        tpb: 200
     AfricaPrecip:
         seed_idx: 0
         input_size: (150, 150)
@@ -99,7 +99,7 @@ data_loader:
     pin_memory: true
 optimizer:
     type: "Adam"
-    lr: 0.001
+    lr: 0.0001
     weight_decay: 0
     metrics: ["roc_auc"]
 trainer:       
