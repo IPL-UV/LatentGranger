@@ -89,10 +89,10 @@ class precip(torch.utils.data.Dataset):
         x = ()
        
         # ENSO
-        target = torch.Tensor(self.target[index * self.tpb : index * self.tpb + self.tpb])
+        target = torch.Tensor(self.target[index : index + self.tpb])
 
         # precip 
-        img_paths = self.paths[index * self.tpb : index * self.tpb + self.tpb]
+        img_paths = self.paths[index : index  + self.tpb]
         vals = np.zeros((self.tpb,) + eval(self.input_size) + (1,), dtype="float32")
         for j, path in enumerate(img_paths):
             data = nc.Dataset(path)
@@ -113,4 +113,4 @@ class precip(torch.utils.data.Dataset):
         Returns:
             (int): the length of the dataset.
         """
-        return len(self.paths) // self.tpb
+        return len(self.paths) - self.tpb + 1

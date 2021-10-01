@@ -69,8 +69,8 @@ def granger_loss(h, target, maxlag = 1, idx = 0):
     loss_with = loss(yy, yypred1)
     #return loss_with / (loss_base - loss_with)  
     #return torch.log(loss_with) - torch.log(loss_base)
-    return torch.log(loss_base + loss_with) - torch.log(loss_base)
-    #return loss_with / loss_base 
+    #return torch.log(loss_base + loss_with) - torch.log(loss_base)
+    return loss_with / loss_base 
 
 ## h.shape = (batch_size, tbp, nlatents)
 ## target.shape = (batch_size, tbp)
