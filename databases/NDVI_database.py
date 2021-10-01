@@ -23,7 +23,7 @@ class NDVI(torch.utils.data.Dataset):
     NDVI-ENSO database loader. 
     """
 
-    def __init__(self, config, mode='train', processing_mode = 'dense', arch_stage = 'causality'):
+    def __init__(self, config, mode='train', processing_mode = 'dense'):
         self.config = config
         self.mode = mode
         self.processing_mode = processing_mode
@@ -36,8 +36,8 @@ class NDVI(torch.utils.data.Dataset):
         # Load time window
         self.tpb = config['tpb']
 
-        self.years = np.linspace(2007, 2017, 1, dtype = int) 
-        self.years = config[arch_stage][mode]
+        #self.years = np.linspace(2007, 2017, 1, dtype = int) 
+        self.years = config[mode]
         self.days = np.linspace(5, 365, 46, dtype = int)  
 
         # load template 

@@ -42,32 +42,27 @@ class LatentGranger(pl.LightningModule):
         # read from config
         self.encoder_out = eval(self.config['arch']['LatentGranger']['encoder']['out_features'])
         self.decoder_out = eval(self.config['arch']['LatentGranger']['decoder']['out_features'])
+        self.latent_dim = self.config['arch']['LatentGranger']['latent_dim'] 
         self.pin_memory = self.config['data_loader']['pin_memory']
         self.num_workers = int(self.config['data_loader']['num_workers'])
-        self.stage = self.config['arch']['stage']
 
         # Define datasets
         data = getattr(databases, database) 
-        self.data_train = data(self.config['data'][database], 'train', 'dense', self.stage) 
-        self.data_val = data(self.config['data'][database], 'val', 'dense', self.stage) 
-        self.data_test = data(self.config['data'][database], 'test', 'dense', self.stage) 
+        self.data_train = data(self.config['data'][database], 'train', 'dense') 
+        self.data_val = data(self.config['data'][database], 'val', 'dense') 
+        self.data_test = data(self.config['data'][database], 'test', 'dense') 
 
         self.batch_size = self.config['data'][database]['batch_size']
         self.tpb = self.config['data'][database]['tpb'] 
          
 
         ### define loss function
-        self.loss_fun = nn.L1Loss()
+        self.loss_fun = nn.MSELoss()
 
         # Define model layers
         # Encoder
         self.encoder_layers = nn.ModuleList()
-        ### mode should be always dense here this is the dense autoencoder
-        mode = 'dense'
-        if mode == 'dense':
-            self.input_size =  self.config['data'][database]['dense_input_size']
-        else:
-            self.input_size = np.prod(eval(self.config['data'][database]['input_size']))
+        self.input_size =  self.config['data'][database]['dense_input_size']
 
         in_ = self.input_size 
         for out_ in self.encoder_out:
@@ -75,10 +70,11 @@ class LatentGranger(pl.LightningModule):
             in_ = out_
         
 
-        self.latent_layer = nn.BatchNorm1d(out_) 
+        self.latent_layer = nn.Linear(in_, self.latent_dim)  
         ## initialize weight matrix as orthogonal 
         torch.nn.init.orthogonal_(self.encoder_layers[-1].weight.data)
 
+        in_ = self.latent_dim 
         # Decoder
         self.decoder_layers = nn.ModuleList()
         for out_ in self.decoder_out:
@@ -93,17 +89,17 @@ class LatentGranger(pl.LightningModule):
         
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size,
-                              shuffle=False, num_workers=self.num_workers,
+                              shuffle=True, num_workers=self.num_workers,
                               pin_memory=self.pin_memory)
 
     def val_dataloader(self):
         return DataLoader(self.data_val, batch_size=self.batch_size,
-                              shuffle=False, num_workers=self.num_workers,
+                              shuffle=True, num_workers=self.num_workers,
                               pin_memory=self.pin_memory)
     
     def test_dataloader(self):
         return DataLoader(self.data_test, batch_size=self.batch_size,
-                              shuffle=False, num_workers=self.num_workers,
+                              shuffle=True, num_workers=self.num_workers,
                               pin_memory=self.pin_memory)
     
     def forward(self, x):
@@ -116,13 +112,12 @@ class LatentGranger(pl.LightningModule):
         # Encoder
         for i in np.arange(len(self.encoder_out)):
             #if i < 2:
-            x = self.drop_layer(x)
+            #x = self.drop_layer(x)
             x = self.encoder_layers[i](x)
-            x = nn.LeakyReLU(0.1)(x)
+            x = nn.ReLU()(x)
             
 
-        # apply normalization
-        #x = self.latent_layer(x)
+        x = self.latent_layer(x)
 
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
@@ -130,9 +125,9 @@ class LatentGranger(pl.LightningModule):
         # Decoder
         for i in np.arange(len(self.decoder_out)):
             #if i > 0: ## no dropout on the latent input to the decoder 
-            #x = self.drop_layer(x)
+            #   x = self.drop_layer(x)
             x = self.decoder_layers[i](x)
-            x = nn.LeakyReLU(0.1)(x)
+            x = nn.ReLU()(x)
                     
         # Output
         x = self.output_layer(x)
@@ -155,12 +150,8 @@ class LatentGranger(pl.LightningModule):
         loss += base_loss
         
         # Granger loss
-        if self.config['arch']['stage'] == 'causality':
-            Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
-            loss += Granger_loss
-        else:
-            Granger_loss = torch.tensor([0.0])
-
+        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        loss += Granger_loss
 
         Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
         #Orth_loss = uncor_loss(x_latent) 
@@ -197,13 +188,8 @@ class LatentGranger(pl.LightningModule):
         base_loss = self.loss_fun(x,x_out)
         loss += base_loss
         
-        # Granger loss
-        if self.config['arch']['stage'] == 'causality':
-            Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
-            loss += Granger_loss
-        else:
-            Granger_loss = torch.tensor([0.0])
-
+        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        loss += Granger_loss
 
         Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
         #Orth_loss = uncor_loss(x_latent) 
@@ -240,11 +226,8 @@ class LatentGranger(pl.LightningModule):
         loss += base_loss
         
         # Granger loss
-        if self.config['arch']['stage'] == 'causality':
-            Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
-            loss += Granger_loss
-        else:
-            Granger_loss = torch.tensor([0.0])
+        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        loss += Granger_loss
         
         Orth_loss = orth_loss(self.encoder_layers[-1].weight) 
         #Orth_loss = uncor_loss(x_latent) 

@@ -4,12 +4,12 @@ n_gpu: 0
 arch:
     LatentGranger:
         encoder:
-            out_features: (128, 64, 32, 16, 2)
+            out_features: (1024, 512, 256, 128)
+        latent_dim: 20
         decoder:
-            out_features: (16, 32, 64, 128)
+            out_features: (128, 256, 512, 1024)
         beta: 0.01
         lag: 4
-    stage: 'causality' # we just use 'causality' for now
     resume: ""
     initial_weights: ''
 data:
@@ -25,6 +25,32 @@ data:
         nsamples_test: 300
         batch_size: 1
         tpb: 300
+    AfricaPrecip:
+        seed_idx: 0
+        input_size: (150, 150)
+        dense_input_size: 11719 
+        root: './databases/data/africa_precip/'
+        years:  [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        nsamples_train: 200
+        nsamples_val: 100
+        nsamples_test: 100
+        batch_size: 1
+        tpb: 100
+        root_ENSO: './databases/data/inino34_daily.dat'
+        root_LC: './databases/data/africa_LC.tif'
+    AfricaPrecipns:
+        seed_idx: 0
+        input_size: (150, 150)
+        dense_input_size: 11719 
+        root: './databases/data/africa_precip_ns/'
+        years:  [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        nsamples_train: 200
+        nsamples_val: 100
+        nsamples_test: 100
+        batch_size: 1
+        tpb: 100
+        root_ENSO: './databases/data/inino34_daily.dat'
+        root_LC: './databases/data/africa_LC.tif'
     AfricaNDVI:
         seed_idx: 0
         input_size: (150, 150)
@@ -32,14 +58,9 @@ data:
         root: './databases/data/africa_ndvi/'
         template: 'ndvi_TMSTMP.nc'
         statistics_root: './databases/data/africa_ndvi_statistics.npz'
-        lr: 
-            train: [2014,2015]
-            val: [2016]
-            test: [2017]
-        causality:
-            train: [2007, 2008, 2009, 2010, 2011]
-            val:   [2013, 2014, 2015, 2016, 2017]
-            test:  [2013, 2014, 2015, 2016, 2017]
+        train: [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        val:   [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        test:  [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
         batch_size: 1
         tpb: 230
         root_ENSO: './databases/data/inino34_daily.dat'
@@ -51,16 +72,11 @@ data:
         root: './databases/data/africa_ndvi_noseasonality/'
         template: 'ndvi_noseasonality_TMSTMP.nc'
         statistics_root: './databases/data/africa_ndvi_noseasonality_statistics.npz'
-        lr: 
-            train: [2014,2015]
-            val: [2016]
-            test: [2017]
-        causality:
-            train: [2007, 2008, 2009, 2010, 2011]
-            val:   [2013, 2014, 2015, 2016, 2017]
-            test:  [2013, 2014, 2015, 2016, 2017]
+        train: [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        val:   [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        test:  [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
         batch_size: 1
-        tpb: 230
+        tpb: 506
         root_ENSO: './databases/data/inino34_daily.dat'
         root_LC: './databases/data/africa_LC.tif'
     NDVI:
@@ -70,14 +86,9 @@ data:
         root: './databases/data/ndvi/'
         template: 'ndvi_TMSTMP.nc'
         statistics_root: './databases/data/ndvi_statistics.npz'
-        lr: 
-            train: [2014,2015]
-            val: [2016]
-            test: [2017]
-        causality:
-            train: [2007, 2008, 2009, 2010, 2011]
-            val:   [2013, 2014, 2015, 2016, 2017]
-            test:  [2013, 2014, 2015, 2016, 2017]
+        train: [2007, 2008, 2009, 2010, 2011]
+        val:   [2013, 2014, 2015, 2016, 2017]
+        test:  [2013, 2014, 2015, 2016, 2017]
         batch_size: 1
         tpb: 150
         root_ENSO: './databases/data/inino34_daily.dat'
@@ -88,7 +99,7 @@ data_loader:
     pin_memory: true
 optimizer:
     type: "Adam"
-    lr: 0.0001
+    lr: 0.001
     weight_decay: 0
     metrics: ["roc_auc"]
 trainer:       
