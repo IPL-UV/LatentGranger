@@ -3,8 +3,8 @@ library(ncdf4)
 
 filename_template <- "precip/precip.YYYY.nc"
 
-years <- 2007:2017
-days <- seq(from = 5, to = 365, by = 1)
+years <- 1990:2017
+days <- seq(from = 5, to = 364, by = 1)
 idx <- c(sapply(1:45, function(i) rep(i, 8)))
 
 precip.list <- lapply(years, function(yyyy) 
