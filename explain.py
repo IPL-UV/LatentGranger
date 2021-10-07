@@ -62,6 +62,9 @@ parser.add_argument('--extract', action = 'store_true',
                   help='extract on LC')
 parser.add_argument('--nig', action = 'store_true',
                   help='run NIG')
+parser.add_argument('--idx', type=int, default = 0,
+                  help='index of reconstruction to plot')
+
 
 
 args = parser.parse_args()
@@ -153,18 +156,17 @@ else:
     mask = data.LC > 0  
 
 tpb = model.tpb 
-imout[mask, 0] = x.detach().numpy()[0, 0, :]
-imout[mask, 1] = x_out.detach().numpy()[0, 0, :]
+imout[mask, 0] = x.detach().numpy()[0, args.idx, :]
+imout[mask, 1] = x_out.detach().numpy()[0, args.idx, :]
 imout[mask, 2] = (imout[mask, 0] - imout[mask, 1])**2
 if args.grad:
     for j in range(latent.shape[-1]):
         grad = np.zeros(x.shape[1:]) 
         for i in range(tpb): 
             mu[i,j].backward(retain_graph = True)
-            grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
+            grad[i,:] += x.grad.numpy()[0,i,:]
             x.grad.fill_(0.0)
         avg[:,:,j][mask] = grad.mean(0)
-        
 
 if args.save:
     img = Image.fromarray(imout[:,:,1])
@@ -177,7 +179,8 @@ if args.save:
 
 else:
     plot_output(imout)
-    plot_output(avg)
+    if args.grad: 
+       plot_output(avg)
 
 if args.extract:
     ## save latent

@@ -118,8 +118,6 @@ class LatentGranger(pl.LightningModule):
         
         # Encoder
         for i in np.arange(len(self.encoder_out)):
-            #if i < 2:
-            #x = self.drop_layer(x)
             x = self.encoder_layers[i](x)
             x = nn.LeakyReLU(0.1)(x)
             
@@ -135,8 +133,6 @@ class LatentGranger(pl.LightningModule):
 
         # Decoder
         for i in np.arange(len(self.decoder_out)):
-            #if i > 0: ## no dropout on the latent input to the decoder 
-            #x = self.drop_layer(x)
             x = self.decoder_layers[i](x)
             x = nn.LeakyReLU(0.1)(x)
                     
@@ -166,7 +162,8 @@ class LatentGranger(pl.LightningModule):
         Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
 
-        Orth_loss = orth_loss(self.mu_layer.weight) 
+        #Orth_loss = orth_loss(self.mu_layer.weight) 
+        Orth_loss = torch.tensor([0.0])
         loss += Orth_loss 
 
         return {'loss': loss,
@@ -213,7 +210,8 @@ class LatentGranger(pl.LightningModule):
         Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
 
-        Orth_loss = orth_loss(self.mu_layer.weight) 
+        #Orth_loss = orth_loss(self.mu_layer.weight) 
+        Orth_loss = torch.tensor([0.0])
         loss += Orth_loss 
 
         return {'val_loss': loss,
@@ -259,7 +257,8 @@ class LatentGranger(pl.LightningModule):
         Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
         
-        Orth_loss = orth_loss(self.mu_layer.weight) 
+        #Orth_loss = orth_loss(self.mu_layer.weight) 
+        Orth_loss = torch.tensor([0.0])
         loss += Orth_loss 
 
         # Loggers
