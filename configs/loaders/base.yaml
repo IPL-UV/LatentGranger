@@ -1,0 +1,4 @@
+class: 'BaseDataModule'
+num_workers: 8
+pin_memory: true
+shuffle: false

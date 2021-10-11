@@ -17,6 +17,8 @@ import argparse, yaml
 from datetime import datetime
 from shutil import copyfile
 
+
+import netCDF4 as nc
 from natsort import natsorted
 import torch
 import pytorch_lightning as pl
@@ -60,8 +62,8 @@ parser.add_argument('--extract', action = 'store_true',
                   help='extract on LC')
 parser.add_argument('--nig', action = 'store_true',
                   help='run NIG')
-
-
+parser.add_argument('--idx', type=int, default = 0,
+                  help='index of reconstruction to plot')
 
 
 
@@ -119,7 +121,8 @@ x.requires_grad_()
 target = torch.reshape(target, (1,) + target.shape)
 
 model.eval()
-x_out, latent = model(x)
+x_out, latent, mu, sigma = model(x)
+
 
 for j in range(latent.shape[-1]):
     corr = lag_cor(latent[:,:,j], target, lag = model.lag) 
@@ -145,29 +148,25 @@ if args.fast:
 
 if args.database == 'Toy':
     avg = np.zeros((128, 128) + (latent.shape[-1],), dtype = float)
-    std = np.zeros((128, 128) + (latent.shape[-1],), dtype = float)
     imout = np.zeros((128,128) + (3,), dtype = float)
     mask = avg[:,:,0] == 0 
 else: 
     avg = np.zeros(data.LC.shape + (latent.shape[-1],), dtype = float)
-    std = np.zeros(data.LC.shape + (latent.shape[-1],), dtype = float)
     imout = np.zeros(data.LC.shape + (3,), dtype = float)
     mask = data.LC > 0  
 
 tpb = model.tpb 
-imout[mask, 0] = x.detach().numpy()[0, -1, :]
-imout[mask, 1] = x_out.detach().numpy()[0, -1, :]
+imout[mask, 0] = x.detach().numpy()[0, args.idx, :]
+imout[mask, 1] = x_out.detach().numpy()[0, args.idx, :]
 imout[mask, 2] = (imout[mask, 0] - imout[mask, 1])**2
 if args.grad:
     for j in range(latent.shape[-1]):
         grad = np.zeros(x.shape[1:]) 
         for i in range(tpb): 
-            latent[0,i,j].backward(retain_graph = True)
-            grad[i,:] += x.grad.numpy()[0,i,:]
+            mu[i,j].backward(retain_graph = True)
+            grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
             x.grad.fill_(0.0)
-        avg[:,:,j][mask] = np.abs(grad).mean(0)
-        std[:,:,j][mask] = grad.std(0) / np.sqrt(tpb)
-        
+        avg[:,:,j][mask] = grad.mean(0)
 
 if args.save:
     img = Image.fromarray(imout[:,:,1])
@@ -177,15 +176,11 @@ if args.save:
         img = Image.fromarray(avg[:,:,j])
         svpth = os.path.join(savedir, f'{chosen}_grad_avg_latent{j}_lag={model.lag}.tiff')
         img.save(svpth)
-        img = Image.fromarray(std[:,:,j])
-        svpth = os.path.join(savedir, f'{chosen}_grad_std_latent{j}_lag={model.lag}.tiff')
-        img.save(svpth)
 
 else:
     plot_output(imout)
-    plot_output(avg)
-    plot_output(std)
-
+    if args.grad: 
+       plot_output(avg)
 
 if args.extract:
     ## save latent
@@ -193,27 +188,37 @@ if args.extract:
     ## save target
     np.savetxt(os.path.join(savedir, f'{chosen}_target.csv'), target.detach().numpy()[0,:]) 
 
+
 if args.nig:
 
-    baseline = torch.Tensor(np.zeros(x.shape, dtype="float32"))
-    out_base, latent_base = model(baseline) 
-    diff_latents = (latent - latent_base).detach().numpy()
+    baseline = np.zeros(x.shape, dtype="float32")
+    
+    
+    if args.database == 'AfricaNDVI':
+       days = np.linspace(5, 365, 46, dtype = int)  
+       template = 'databases/data/africa_ndvi_seasonality/ndvi_seasonality_TMSTMP.nc'
+       paths = [os.path.join(template.replace('TMSTMP', f'{day:03}')) 
+            for day in days]  
+       for j, path in enumerate(paths):
+           data = nc.Dataset(path)
+           val = np.array(data['ndvi'])
+           baseline[0, j + 46 * np.arange(3), :] = val[mask] 
+
+    baseline = torch.Tensor(baseline)
+    nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = True)
 
     for j in range(1):
         # Baseline for Integrated Gradients
         # Zeros (default)
             
-        print(diff_latents.shape)
         # 1) NeuronIntegratedGradients, to see, for each latent representation,
         # the attribution to each of the input spatial locations in features (e.g. NDVI)
-        nig = NeuronIntegratedGradients(model, model.encoder_layers[-1], multiply_by_inputs = False)
 
         attr_maps = nig.attribute(x,(j,), baselines=baseline, internal_batch_size=1)
-        print(attr_maps.shape)
         attr_maps = attr_maps
         os.makedirs(os.path.join(savedir, f'nig{j}'), exist_ok = True)
-        for i in range(tpb):
+        for i in range(model.tpb):
             imgarray = np.zeros(mask.shape)
-            imgarray[mask] = np.abs(attr_maps.detach().numpy()[0,i,:])
+            imgarray[mask] = attr_maps.detach().numpy()[0,i,:]
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))

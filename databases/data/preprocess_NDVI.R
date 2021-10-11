@@ -17,7 +17,23 @@ ndvi = (nir-red)/(nir+red)
 ndvi = approxNA(ndvi, rule = 2)  ### use linear interpolation to fill NA
 seasonality = stackApply(ndvi, indices = 1:46, fun = mean, na.rm = TRUE)
 
-sd_seasonality <- stackApply(ndvi, indices = 1:46, fun = sd, na.rm = TRUE)
+dir.create("ndvi_seasonality")
+raster::writeRaster(seasonality, 
+                    filename = "ndvi_seasonality/ndvi_seasonality.nc", 
+                    bylayer = TRUE,
+                    varname = 'ndvi',
+                    suffix = days,
+                    overwrite = TRUE,
+                    NAflag = -999)
+
+dir.create("africa_ndvi_seasonality")
+raster::writeRaster(crop(seasonality, extent(-20, 55, -37, 38)), 
+                    filename = "africa_ndvi_seasonality/ndvi_seasonality.nc", 
+                    bylayer = TRUE,
+                    varname = 'ndvi',
+                    suffix = days,
+                    overwrite = TRUE,
+                    NAflag = -999)
 
 ndvi_noseasonality <- ndvi - seasonality ### ok values are recycled
 

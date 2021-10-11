@@ -19,10 +19,10 @@ class Toy(torch.utils.data.Dataset):
     Toy database loader. 
     """
 
-    def __init__(self, config, mode='train', processing_mode = 'dense', stage = 'causality'):
+    def __init__(self, config, mode='train'):
         self.config = config
         self.mode = mode
-        self.processing_mode = processing_mode
+        self.processing_mode = config['processing_mode']
         self.root = self.config['root']
         self.targetpath = os.path.join(self.root, "target.txt")
         self.nsamples_train = self.config['nsamples_train']
