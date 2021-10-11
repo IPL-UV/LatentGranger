@@ -57,7 +57,7 @@ def granger_loss(h, target, maxlag = 1, idx = 0):
     xx = torch.zeros(yy.shape + (maxlag * (h.shape[2] + 1)+1,)) 
     for lag in range(maxlag):
         xx[:, lag*h.shape[2]:(lag+1)*h.shape[2]] = h[:, (maxlag - lag - 1):-(lag + 1), :].reshape((xx.shape[0],) +  (h.shape[2],))
-    xx[:, -maxlag - 1] = 1
+    xx[:, -maxlag - 1] = 1.0
     for lag in range(maxlag):
         xx[:, -(lag+1)] = target[:,  (maxlag - lag - 1):-(lag+1)]
     PP = torch.linalg.pinv(xx[:,0:-maxlag]) 
@@ -80,7 +80,7 @@ def granger_simple_loss(h, target, maxlag = 1, idx = 0):
     xx = torch.zeros(yy.shape + (maxlag * 2 + 1,)) 
     for lag in range(maxlag):
         xx[:, lag] = h[:, (maxlag - lag - 1):-(lag + 1), idx]
-    xx[:, -maxlag - 1] = 1
+    xx[:, -maxlag - 1] = 1.0
     for lag in range(maxlag):
         xx[:, -(lag+1)] = target[:,  (maxlag - lag - 1):-(lag+1)]
     PP = torch.linalg.pinv(xx[:,0:-maxlag]) 

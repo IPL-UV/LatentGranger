@@ -164,7 +164,7 @@ if args.grad:
         grad = np.zeros(x.shape[1:]) 
         for i in range(tpb): 
             mu[i,j].backward(retain_graph = True)
-            grad[i,:] += x.grad.numpy()[0,i,:]
+            grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
             x.grad.fill_(0.0)
         avg[:,:,j][mask] = grad.mean(0)
 

@@ -4,11 +4,12 @@ n_gpu: 0
 arch:
     LatentGranger:
         encoder:
-            out_features: (512, 256, 128)
-        latent_dim: 5
+            out_features: (512, 512)
+        latent_dim: 10
         decoder:
-            out_features: (128, 256, 512)
+            out_features: (512, 512)
         beta: 0.01
+        betaz: 1
         lag: 4
     resume: ""
     initial_weights: ''
@@ -33,6 +34,19 @@ data:
         nsamples_test: 300
         batch_size: 1
         tpb: 300
+    GlobalPrecip:
+        seed_idx: 0
+        input_size: (360, 720)
+        dense_input_size: 60104 
+        root: './databases/data/global_precip/'
+        years:  [1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,  2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017]
+        nsamples_train: 600
+        nsamples_val: 600
+        nsamples_test: 200
+        batch_size: 1
+        tpb: 400
+        root_ENSO: './databases/data/inino34_daily.dat'
+        root_LC: './databases/data/LC_hd_global_2012_full.tif'
     AfricaPrecip:
         seed_idx: 0
         input_size: (150, 150)

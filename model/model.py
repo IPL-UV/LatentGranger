@@ -10,19 +10,14 @@ All rights reserved.
 """
 
 import numpy as np
-import torch
+import torch 
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from utils import * 
 from .loss import *
 
-# Databases
-from torch.utils.data import DataLoader
-import databases
-
-class LatentGranger(pl.LightningModule):
-    def __init__(self, config, database):
+class bvae(pl.LightningModule):
+    def __init__(self, config, input_size, tpb, batch_size = 1, maxlags = 1):
         super().__init__()
         
         # Save hyperparameters
@@ -30,56 +25,40 @@ class LatentGranger(pl.LightningModule):
         
         # Config
         self.config = config
-
-        # Device
-        self.user_device = self.config['data_loader']['device']
-
+        self.batch_size = batch_size
+        self.tpb = tpb 
+         
         # coefficient for granger regularization
-        self.beta = float(self.config['arch']['LatentGranger']['beta'])
+        self.beta = float(config['beta'])
+
+        # coefficient for beta-VAE
+        self.betaz = float(config['betaz'])
+
         # lag 
-        self.lag = int(self.config['arch']['LatentGranger']['lag'])
+        self.lag = int(maxlags)
 
         # read from config
-        self.latent_dim = self.config['arch']['LatentGranger']['latent_dim']  
-        self.encoder_out = eval(self.config['arch']['LatentGranger']['encoder']['out_features'])
-        self.decoder_out = eval(self.config['arch']['LatentGranger']['decoder']['out_features'])
-        self.pin_memory = self.config['data_loader']['pin_memory']
+        self.latent_dim = config['latent_dim']  
+        self.encoder_out = eval(config['encoder']['out_features'])
+        self.decoder_out = eval(config['decoder']['out_features'])
         self.num_workers = int(self.config['data_loader']['num_workers'])
-
-        # Define datasets
-        data = getattr(databases, database) 
-        self.data_train = data(self.config['data'][database], 'train', 'dense') 
-        self.data_val = data(self.config['data'][database], 'val', 'dense') 
-        self.data_test = data(self.config['data'][database], 'test', 'dense') 
-
-        self.batch_size = self.config['data'][database]['batch_size']
-        self.tpb = self.config['data'][database]['tpb'] 
-         
 
         ### define distribution for VAE
         self.N = torch.distributions.Normal(0,1) 
 
+        self.input_size = input_size
+
         # Define model layers
         # Encoder
         self.encoder_layers = nn.ModuleList()
-        ### mode should be always dense here this is the dense autoencoder
-        mode = 'dense'
-        if mode == 'dense':
-            self.input_size =  self.config['data'][database]['dense_input_size']
-        else:
-            self.input_size = np.prod(eval(self.config['data'][database]['input_size']))
 
         in_ = self.input_size 
         for out_ in self.encoder_out:
             self.encoder_layers.append(nn.Linear(in_, out_))
             in_ = out_
         
-
         self.mu_layer = nn.Linear(in_, self.latent_dim) 
         self.sigma_layer = nn.Linear(in_, self.latent_dim) 
-
-        ## initialize weight matrix as orthogonal 
-        torch.nn.init.orthogonal_(self.mu_layer.weight.data)
 
         in_ = self.latent_dim
         # Decoder
@@ -100,12 +79,12 @@ class LatentGranger(pl.LightningModule):
                               pin_memory=self.pin_memory)
 
     def val_dataloader(self):
-        return DataLoader(self.data_val, batch_size=self.batch_size,
+        return DataLoader(self.data_train, batch_size=self.batch_size,
                               shuffle=False, num_workers=self.num_workers,
                               pin_memory=self.pin_memory)
     
     def test_dataloader(self):
-        return DataLoader(self.data_test, batch_size=self.batch_size,
+        return DataLoader(self.data_train, batch_size=self.batch_size,
                               shuffle=False, num_workers=self.num_workers,
                               pin_memory=self.pin_memory)
     
@@ -119,7 +98,7 @@ class LatentGranger(pl.LightningModule):
         # Encoder
         for i in np.arange(len(self.encoder_out)):
             x = self.encoder_layers[i](x)
-            x = nn.LeakyReLU(0.1)(x)
+            x = F.leaky_relu(x, 0.01)
             
         mu = self.mu_layer(x)   
         sigma = torch.exp(self.sigma_layer(x)) 
@@ -134,7 +113,7 @@ class LatentGranger(pl.LightningModule):
         # Decoder
         for i in np.arange(len(self.decoder_out)):
             x = self.decoder_layers[i](x)
-            x = nn.LeakyReLU(0.1)(x)
+            x = F.leaky_relu(x, 0.01)
                     
         # Output
         x = self.output_layer(x)
@@ -153,25 +132,20 @@ class LatentGranger(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0]).to(self.user_device)
         
-
-        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
-        mse_loss = nn.functional.mse_loss(x_out,x)
+        kl_loss = self.betaz*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        mse_loss = F.mse_loss(x_out,x)
         loss += mse_loss + kl_loss
         
         # Granger loss
-        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        Granger_loss = self.beta * granger_simple_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
 
-        #Orth_loss = orth_loss(self.mu_layer.weight) 
-        Orth_loss = torch.tensor([0.0])
-        loss += Orth_loss 
 
         return {'loss': loss,
                 'mse_loss': mse_loss.detach().item(),
                 'kl_loss' : kl_loss.detach().item(),
-                'granger_loss': Granger_loss.detach().item(),
-                'orth_loss': Orth_loss.detach().item()}
-    
+                'granger_loss': Granger_loss.detach().item()}
+ 
     def training_epoch_end(self, training_step_outputs):
         # Loggers
         loss = [batch['loss'].detach().cpu().numpy() for batch in training_step_outputs]
@@ -187,9 +161,6 @@ class LatentGranger(pl.LightningModule):
         Granger_loss = np.array([batch['granger_loss'] for batch in training_step_outputs])
         self.logger.experiment[0].add_scalars("granger_losses", {"train": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
 
-        Orth_loss = np.array([batch['orth_loss'] for batch in training_step_outputs])
-        self.logger.experiment[0].add_scalars("orth_losses", {"train": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
-        
 
         
     def validation_step(self, batch, idx): 
@@ -202,23 +173,18 @@ class LatentGranger(pl.LightningModule):
         loss = torch.tensor([0.0]).to(self.user_device)
 
 
-        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
-        mse_loss = nn.functional.mse_loss(x_out,x)
+        kl_loss = self.betaz*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        mse_loss = F.mse_loss(x_out,x)
         loss += mse_loss + kl_loss
         
         # Granger loss
-        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        Granger_loss = self.beta * granger_simple_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
-
-        #Orth_loss = orth_loss(self.mu_layer.weight) 
-        Orth_loss = torch.tensor([0.0])
-        loss += Orth_loss 
 
         return {'val_loss': loss,
                 'val_mse_loss': mse_loss.detach().item(),
                 'val_kl_loss': kl_loss.detach().item(),
-                'val_granger_loss': Granger_loss.detach().item(),
-                'val_orth_loss': Orth_loss.detach().item()}
+                'val_granger_loss': Granger_loss.detach().item()}
 
     def validation_epoch_end(self, validation_step_outputs):
         # Loggers
@@ -236,9 +202,6 @@ class LatentGranger(pl.LightningModule):
         Granger_loss = np.array([batch['val_granger_loss'] for batch in validation_step_outputs])
         self.logger.experiment[0].add_scalars("granger_losses", {"val": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
 
-        Orth_loss = np.array([batch['val_orth_loss'] for batch in validation_step_outputs])
-        self.logger.experiment[0].add_scalars("orth_losses", {"val": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
-        
 
     def test_step(self, batch, idx):
         x, target = batch
@@ -250,24 +213,20 @@ class LatentGranger(pl.LightningModule):
         loss = torch.tensor([0.0]).to(self.user_device)
         
 
-        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
-        mse_loss = nn.functional.mse_loss(x_out,x)
+        kl_loss = selg.betaz*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        mse_loss = F.mse_loss(x_out,x)
         loss += mse_loss + kl_loss       
 
-        Granger_loss = self.beta * granger_loss(x_latent, target, maxlag = self.lag)
+        Granger_loss = self.beta * granger_simple_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
         
-        #Orth_loss = orth_loss(self.mu_layer.weight) 
-        Orth_loss = torch.tensor([0.0])
-        loss += Orth_loss 
 
         # Loggers
         return {'test_loss': loss,
                 'test_mse_loss': mse_loss.detach().item(),
                 'test_kl_loss': kl_loss.detach().item(),
-                'test_granger_loss': Granger_loss.detach().item(),
-                'test_orth_loss': Orth_loss.detach().item()}
-    
+                'test_granger_loss': Granger_loss.detach().item()}
+ 
     def test_epoch_end(self, test_step_outputs):
         # Loggers
         loss = [batch['test_loss'].detach().cpu().numpy() for batch in test_step_outputs]
@@ -284,13 +243,10 @@ class LatentGranger(pl.LightningModule):
         Granger_loss = np.array([batch['test_granger_loss'] for batch in test_step_outputs])
         self.logger.experiment[0].add_scalars("granger_losses", {"test": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
 
-        Orth_loss = np.array([batch['test_orth_loss'] for batch in test_step_outputs])
-        self.logger.experiment[0].add_scalars("orth_losses", {"test": np.nanmean(Orth_loss)}, global_step=self.current_epoch)
-        
 
-    def configure_optimizers(self):
-        # build optimizer
-        trainable_params = filter(lambda p: p.requires_grad, self.parameters())
-        optimizer = torch.optim.Adam(trainable_params, lr=self.config['optimizer']['lr'], weight_decay=self.config['optimizer']['weight_decay'])
+    #def configure_optimizers(self):
+    #    # build optimizer
+    #    trainable_params = filter(lambda p: p.requires_grad, self.parameters())
+    #    optimizer = torch.optim.Adam(trainable_params, lr=self.config['optimizer']['lr'], weight_decay=self.config['optimizer']['weight_decay'])
         
-        return optimizer
+    #    return optimizer

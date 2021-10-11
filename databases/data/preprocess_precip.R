@@ -20,6 +20,14 @@ seasonality = stackApply(precip, indices = 1:45, fun = mean, na.rm = TRUE)
 
 africa_precip <- crop(precip, extent(-20 , 55 , -37, 38))
 
+dir.create("global_precip", recursive = TRUE)
+raster::writeRaster(precip, 
+                    filename = "global_precip/precip.nc", 
+                    bylayer = TRUE,
+                    varname = 'precip',
+                    overwrite = TRUE,
+                    NAflag = -999)
+
 dir.create("africa_precip", recursive = TRUE)
 raster::writeRaster(africa_precip, 
                     filename = "africa_precip/precip.nc", 

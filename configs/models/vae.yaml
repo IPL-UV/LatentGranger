@@ -1,0 +1,28 @@
+class: 'bvae'
+arch:
+    encoder:
+        out_features: (512, 512)
+    latent_dim: 10
+    decoder:
+        out_features: (512, 512)
+    beta: 0.01
+    betaz: 1
+    lag: 4
+    resume: ""
+    initial_weights: ''
+optimizer:
+    type: "Adam"
+    lr: 0.0001
+    weight_decay: 0
+    metrics: ["roc_auc"]
+trainer:       
+    epochs: 100
+    save_period: 1
+    verbosity: 2
+    monitor: "min val_loss"
+    early_stop: 10
+    tensorboard: true 
+    codeDir: "./"
+    save_dir: "./predictions"
+    save_predictions: true
+    my_dpi: 96

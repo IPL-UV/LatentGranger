@@ -40,6 +40,7 @@ class NDVI(torch.utils.data.Dataset):
         self.years = config[mode]
         self.days = np.linspace(5, 365, 46, dtype = int)  
 
+
         # load template 
         self.template = config['template'] 
 
@@ -63,44 +64,7 @@ class NDVI(torch.utils.data.Dataset):
             self.ENSO.append(ENSO_tmp)
         self.ENSO = np.concatenate(self.ENSO)[:,1]
 
-        # Compute statistics for normalization
-        # Normalization
-        if self.mode == 'train': 
-            self._compute_statistics()
-        else:
-            statistics = np.load(self.config['statistics_root'])
-            self.mean = statistics['mean']
-            self.std = statistics['std']
-        #self.mean = [0.0]
-        #self.std = [1.0]
-
-    def _compute_statistics(self):
-        print("Computing statistics...")
-
-        # Compute mean
-        self.mean = 0.0
-        self.std = 0.0
-        nSamples_total = 0 
-        for j, path in enumerate(self.paths):
-            data = nc.Dataset(path)
-            x = np.array(data['ndvi'])
-            ix = ~(x == data['ndvi']._FillValue)
-            nSamples_total += np.sum(ix)
-            self.mean += np.sum(x[ix])
-        self.mean = self.mean / nSamples_total
-        
-        # Compute standard deviation
-        for j, path in enumerate(self.paths):
-            data = nc.Dataset(path)
-            x = np.array(data['ndvi'])
-            ix = ~(x == data['ndvi']._FillValue)
-            nSamples_total += np.sum(ix)
-            self.std += np.sum(np.square(x[ix] - self.mean))
-        self.std = self.std / (nSamples_total-1)
-        self.std = np.sqrt(self.std)
-
-        np.savez(self.config['statistics_root'], mean=self.mean, std=self.std)
-       
+      
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""
         # Features
@@ -115,8 +79,8 @@ class NDVI(torch.utils.data.Dataset):
         for j, path in enumerate(img_paths):
             data = nc.Dataset(path)
             x = np.array(data['ndvi'])
-            x[x == data['ndvi']._FillValue] = self.mean ## set NA to the mean
-            x = (x - self.mean) / self.std 
+            x[x == data['ndvi']._FillValue] = 0.0 ## set NA to the mean
+            #x = (x - self.mean) / self.std 
             ndvi[j, :, :, 0] = x 
             
         

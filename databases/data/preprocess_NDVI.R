@@ -35,8 +35,6 @@ raster::writeRaster(crop(seasonality, extent(-20, 55, -37, 38)),
                     overwrite = TRUE,
                     NAflag = -999)
 
-sd_seasonality <- stackApply(ndvi, indices = 1:46, fun = sd, na.rm = TRUE)
-
 ndvi_noseasonality <- ndvi - seasonality ### ok values are recycled
 
 dir.create("ndvi", recursive = TRUE)

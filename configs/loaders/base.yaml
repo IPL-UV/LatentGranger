@@ -1,0 +1,4 @@
+class: 'Dense'
+num_workers: 8
+pin_memory: true
+
