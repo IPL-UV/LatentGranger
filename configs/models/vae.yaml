@@ -2,7 +2,7 @@ class: 'bvae'
 dense: 'true'
 encoder:
     out_features: [512, 512]
-latent_dim: 10
+latent_dim: 2
 decoder:
     out_features: [512, 512]
 beta: 1
