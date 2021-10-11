@@ -29,9 +29,9 @@ class NDVI(torch.utils.data.Dataset):
         self.processing_mode = processing_mode
 
         
-        self.input_size = config['input_size']
+        self.input_size = tuple(config['input_size'])
         # Load Land Cover map
-        self.LC = imread(config['root_LC'])
+        self.mask = imread(config['mask']) > 0
 
         # Load time window
         self.tpb = config['tpb']
@@ -75,19 +75,18 @@ class NDVI(torch.utils.data.Dataset):
 
         # NDVI 
         img_paths = self.paths[index : index + self.tpb]
-        ndvi = np.zeros((self.tpb,) + eval(self.input_size) + (1,), dtype="float32")
+        ndvi = np.zeros((self.tpb,) + self.input_size + (1,), dtype="float32")
         for j, path in enumerate(img_paths):
             data = nc.Dataset(path)
             x = np.array(data['ndvi'])
-            x[x == data['ndvi']._FillValue] = 0.0 ## set NA to the mean
-            #x = (x - self.mean) / self.std 
+            x[x == data['ndvi']._FillValue] = 0.0 ## set NA to 0.0
             ndvi[j, :, :, 0] = x 
             
         
         if self.processing_mode == 'flat':
-            # Discard background values according to LC and flatten if autoencoder is dense
+            # Discard background values according to LC and flatten if processing_mode is flat
             ndvi = np.reshape(ndvi, (self.tpb, -1))
-            ndvi = ndvi[:,np.ndarray.flatten(self.LC)>0]
+            ndvi = ndvi[:,np.ndarray.flatten(self.mask)]
 
         ndvi = torch.Tensor(ndvi) 
         return ndvi, enso

@@ -1,10 +1,10 @@
 class: 'bvae'
 dense: 'true'
 encoder:
-    out_features: (512, 512)
+    out_features: [512, 512]
 latent_dim: 10
 decoder:
-    out_features: (512, 512)
+    out_features: [512, 512]
 beta: 1
 processing_mode: 'flat'
 optimizer:

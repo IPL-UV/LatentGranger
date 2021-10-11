@@ -12,24 +12,23 @@ please do not distribute
 """
 
 import os
+import git
 import numpy as np
 import argparse, yaml
 from datetime import datetime
-from shutil import copyfile
 
 
 import netCDF4 as nc
 from natsort import natsorted
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from PIL import Image
 
+import loaders
 # Model
-import model 
-from model import lag_cor  
-from model import granger_loss 
+import models 
+from models import lag_cor  
+from models import granger_loss 
 from utils import *
 
 # PyTorch Captum for XAI
@@ -40,42 +39,52 @@ from captum.attr import NeuronConductance, NeuronIntegratedGradients
 
 # ArgParse
 parser = argparse.ArgumentParser(description="ArgParse")
-parser.add_argument('-a', '--arch', default='LatentGranger', type=str,
-                  help='arch name (default: NeuralGranger)')
-parser.add_argument('-d', '--database', default='toy', type=str,
+
+parser.add_argument('-m', '--model', default='vae', type=str,
+                  help='model name (default: vae)')
+parser.add_argument('-d', '--data', default='toy', type=str,
                   help='database name (default: toy)')
+parser.add_argument('--loader', default='base', type=str,
+                  help='loaders name (default: base) associated to a config file in configs/loaders/')
 parser.add_argument('-c','--checkpoint', default='last.ckpt', type=str,
                   help='checkpoint (default: last)')
+parser.add_argument('--commit', default='', type=str,
+                  help='commit 7 character (default:)')
 parser.add_argument('-t','--timestamp', default='', type=str,
-                  help='timestampt (default: '')')
+                  help='timestampt (default:)')
 parser.add_argument('--train', action = 'store_true',
                   help='use trainig data')
 parser.add_argument('--val', action = 'store_true',
                   help='use val data')
 parser.add_argument('--save', action = 'store_true',
-                  help='save image')
-parser.add_argument('--fast', action = 'store_true',
-                  help='only fast part')
+                  help='save images')
 parser.add_argument('--grad', action = 'store_true',
-                  help='only fast part')
+                  help='compute average gradient')
 parser.add_argument('--extract', action = 'store_true',
-                  help='extract on LC')
+                  help='extract latent series')
 parser.add_argument('--nig', action = 'store_true',
                   help='run NIG')
 parser.add_argument('--idx', type=int, default = 0,
                   help='index of reconstruction to plot')
 
 
-
 args = parser.parse_args()
 
-chckroot = os.path.join('checkpoints', args.database, args.arch)
-logsroot = os.path.join('logs', args.database, args.arch, args.arch)
+if args.commit == '':
+   repo = git.Repo(search_parent_directories=True)
+   git_commit_sha = repo.head.object.hexsha[:7]
+else:
+   git_commit_sha = args.commit
 
+
+log_root =  os.path.join('logs', args.data, args.model, git_commit_sha) 
+check_root =  os.path.join('checkpoints', args.data, args.model, git_commit_sha) 
+
+print(check_root)
 allchckpts = natsorted(
             [
                 fname
-                for fname in os.listdir(chckroot)
+                for fname in os.listdir(check_root)
             ],
         )
 
@@ -88,29 +97,54 @@ else:
     dt = datetime.fromisoformat(args.timestamp) 
     chosen = min(allchckpts,key=lambda x : abs(datetime.fromisoformat(x) - dt))
 
-checkpoint = os.path.join(chckroot, chosen, args.checkpoint)
+checkpoint = os.path.join(check_root, chosen, args.checkpoint)
 
 print('chosen checkpoint: ' + checkpoint)
 
+with open(f'configs/models/{args.model}.yaml') as file:
+    # The FullLoader parameter handles the conversion from YAML
+    # scalar values to Python dictionary format
+    model_config = yaml.load(file, Loader=yaml.FullLoader)
+
+
 ## define the model and load the checkpoint
-model = getattr(model, args.arch).load_from_checkpoint(checkpoint)
+model = getattr(models, model_config['class']).load_from_checkpoint(checkpoint)
 
 print("model loaded with chosen checkpoint") 
 
 ################### print model info #####################
 
 print(model)
-print(f'beta: {model.beta}, lag: {model.lag}')
+print(f'gamma: {model.gamma}, maxlag: {model.lag}')
+
+#################### load data #########################
+
+with open(f'configs/loaders/{args.loader}.yaml') as file:
+    # The FullLoader parameter handles the conversion from YAML
+    # scalar values to Python dictionary format
+    loader_config = yaml.load(file, Loader=yaml.FullLoader)
+
+
+with open(f'configs/data/{args.data}.yaml') as file:
+    # The FullLoader parameter handles the conversion from YAML
+    # scalar values to Python dictionary format
+    data_config = yaml.load(file, Loader=yaml.FullLoader)
+
+
+# Build data models
+datamodule_class = getattr(loaders, loader_config['class']) 
+datamodule = datamodule_class(loader_config, data_config, model_config['processing_mode'])
+ 
 
 #####################   here we can do inference, plot ##############
 
 
 if args.train:
-    data = model.data_train
+    data = datamodule.data_train
 elif args.val:
-    data = model.data_val
+    data = datamodule.data_val
 else:
-    data = model.data_test
+    data = datamodule.data_test
 
 savedir = os.path.join('viz', chosen)
 os.makedirs(savedir, exist_ok = True)
@@ -134,26 +168,23 @@ print(f'granger losss: {gloss}')
 
 
 if args.save:
-    svpth = os.path.join(savedir, '{chosen}_latents.png')
+    svpth = os.path.join(savedir, f'{chosen}_latents.png')
     plot_latent(latent[0,:,:], target, svpth)  
 else:
     plot_latent(latent[0,:,:], target)  
 
 
-if args.fast:
-    exit()
-
 ### compute gradient and plot or save 
 
 
-if args.database == 'Toy':
-    avg = np.zeros((128, 128) + (latent.shape[-1],), dtype = float)
-    imout = np.zeros((128,128) + (3,), dtype = float)
-    mask = avg[:,:,0] == 0 
-else: 
-    avg = np.zeros(data.LC.shape + (latent.shape[-1],), dtype = float)
-    imout = np.zeros(data.LC.shape + (3,), dtype = float)
-    mask = data.LC > 0  
+if hasattr(data, 'mask'): 
+   mask = data.mask 
+   avg = np.zeros(data.mask.shape + (latent.shape[-1],), dtype = float)
+   imout = np.zeros(data.mask.shape + (3,), dtype = float)
+else:
+   avg = np.zeros(data.input_size + (latent.shape[-1],), dtype = float) 
+   imout = np.zeros(data.input_size + (3,), dtype = float)
+   mask = avg[:,:,0] == 0 
 
 tpb = model.tpb 
 imout[mask, 0] = x.detach().numpy()[0, args.idx, :]
@@ -193,21 +224,10 @@ if args.nig:
 
     baseline = np.zeros(x.shape, dtype="float32")
     
-    
-    if args.database == 'AfricaNDVI':
-       days = np.linspace(5, 365, 46, dtype = int)  
-       template = 'databases/data/africa_ndvi_seasonality/ndvi_seasonality_TMSTMP.nc'
-       paths = [os.path.join(template.replace('TMSTMP', f'{day:03}')) 
-            for day in days]  
-       for j, path in enumerate(paths):
-           data = nc.Dataset(path)
-           val = np.array(data['ndvi'])
-           baseline[0, j + 46 * np.arange(3), :] = val[mask] 
-
     baseline = torch.Tensor(baseline)
     nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = True)
 
-    for j in range(1):
+    for j in range(latent.shape[-1]):
         # Baseline for Integrated Gradients
         # Zeros (default)
             

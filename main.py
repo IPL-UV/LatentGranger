@@ -37,7 +37,7 @@ parser.add_argument('-d', '--data', default='toy', type=str,
 parser.add_argument('--loader', default='base', type=str,
                   help='loaders name (default: base) associated to a config file in configs/loaders/')
 parser.add_argument('--maxlag', default=1, type=int,
-                  help='lag (default: 1)')
+                  help='maxlag (default: 1)')
 parser.add_argument('-g', '--gamma', default=0, type=float,
                   help='gamma regulazier for granger penalty (default: 0)')
 parser.add_argument('--gpu', default = 0, type = int, help = 'number of GPUs (0 for only CPU)')
@@ -96,9 +96,10 @@ checkpoint_callback = ModelCheckpoint(dirpath= checkpoints_dir,
                                       filename='{epoch}-{val_loss:.5f}',
                                       mode='min', monitor='val_loss',
                                       save_last=True, save_top_k=5)
+
 early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=10, 
-                               verbose=True, mode='min', strict=True)
-callbacks = [checkpoint_callback]  #, early_stopping]
+                               verbose=False, mode='min', strict=True)
+callbacks = [checkpoint_callback, early_stopping]
 
 
 trainer = pl.Trainer(accumulate_grad_batches=1, callbacks=callbacks, 

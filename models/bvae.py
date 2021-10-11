@@ -38,8 +38,8 @@ class bvae(pl.LightningModule):
 
         # read from config
         self.latent_dim = config['latent_dim']  
-        self.encoder_out = eval(config['encoder']['out_features'])
-        self.decoder_out = eval(config['decoder']['out_features'])
+        self.encoder_out = config['encoder']['out_features']
+        self.decoder_out = config['decoder']['out_features']
 
         ### define distribution for VAE
         self.N = torch.distributions.Normal(0,1) 

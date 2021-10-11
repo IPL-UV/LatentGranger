@@ -28,10 +28,10 @@ class precip(torch.utils.data.Dataset):
         self.mode = mode
         self.processing_mode = processing_mode
         
-        self.input_size = config['input_size']
+        self.input_size = tuple(config['input_size'])
 
         # Load Land Cover map
-        self.LC = imread(config['root_LC'])
+        self.mask = imread(config['mask']) > 0 
 
         # Load time window
         self.tpb = config['tpb']
@@ -93,7 +93,7 @@ class precip(torch.utils.data.Dataset):
 
         # precip 
         img_paths = self.paths[index : index  + self.tpb]
-        vals = np.zeros((self.tpb,) + eval(self.input_size) + (1,), dtype="float32")
+        vals = np.zeros((self.tpb,) + self.input_size + (1,), dtype="float32")
         for j, path in enumerate(img_paths):
             data = nc.Dataset(path)
             x = np.array(data['precip'])
@@ -104,7 +104,7 @@ class precip(torch.utils.data.Dataset):
         if self.processing_mode == 'flat':
             # Discard background values according to LC and flatten if autoencoder is dense
             vals = np.reshape(vals, (self.tpb, -1))
-            vals = vals[:,np.ndarray.flatten(self.LC)>0]
+            vals = vals[:,np.ndarray.flatten(self.mask)]
 
         return torch.Tensor(vals), target
 

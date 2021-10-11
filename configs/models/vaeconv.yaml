@@ -1,10 +1,10 @@
 class: 'bvaeconv'
 dense: 'true'
 encoder:
-    out_features: (5, 5, 2)
+    out_features: [5, 5, 2]
 latent_dim: 10
 decoder:
-    out_features: (5, 5, 1)
+    out_features: [5, 5, 1]
 beta: 1
 processing_mode: 'falt'
 optimizer:

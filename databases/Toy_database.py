@@ -29,7 +29,7 @@ class Toy(torch.utils.data.Dataset):
         self.nsamples_test = self.config['nsamples_test']
         self.nsamples_val = self.config['nsamples_val']
         self.tbp = self.config['tpb']
-        self.input_size = self.config['input_size']
+        self.input_size = tuple(self.config['input_size'])
         
         
         # Train/Validation/Test sets
@@ -60,7 +60,7 @@ class Toy(torch.utils.data.Dataset):
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""
         img_paths = self._input_img_paths[index : index + self.tbp]
-        x = np.zeros((self.tbp,) + eval(self.input_size) + (1,), dtype="float32")
+        x = np.zeros((self.tbp,) + self.input_size + (1,), dtype="float32")
         y = self.target[index : index + self.tbp]
         for j, path in enumerate(img_paths):
             img = imread(path)
