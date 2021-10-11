@@ -19,10 +19,10 @@ class Toy(torch.utils.data.Dataset):
     Toy database loader. 
     """
 
-    def __init__(self, config, mode='train'):
+    def __init__(self, config, mode='train', processing_mode = 'flat'):
         self.config = config
         self.mode = mode
-        self.processing_mode = config['processing_mode']
+        self.processing_mode = processing_mode
         self.root = self.config['root']
         self.targetpath = os.path.join(self.root, "target.txt")
         self.nsamples_train = self.config['nsamples_train']
@@ -65,7 +65,7 @@ class Toy(torch.utils.data.Dataset):
         for j, path in enumerate(img_paths):
             img = imread(path)
             x[j, :, :, 0] = img / 255.0
-        if self.processing_mode == 'dense':
+        if self.processing_mode == 'flat':
             x = np.reshape(x, (self.tbp, -1))
         x = torch.Tensor(x)
         y = torch.Tensor(y)

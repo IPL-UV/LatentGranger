@@ -69,18 +69,22 @@ git_commit_sha = repo.head.object.hexsha[:7]
 
 experiment_id = str(datetime.now()) 
 log_dir =  os.path.join('logs', args.data, args.model, git_commit_sha, experiment_id) 
-checkpoints_dir =  os.path.join('logs', args.data, args.model, git_commit_sha, experiment_id) 
+checkpoints_dir =  os.path.join('checkpoints', args.data, args.model, git_commit_sha, experiment_id) 
 
 # Build model
 
+if model_config['processing_mode'] == 'flat':
+   input_size = data_config['flat_input_size']
+else:
+   input_size = eval(data_config['input_size'])
+
 model_class = getattr(models, model_config['class']) 
-model = model_class(model_config, data_config['input'], data_config['tpb'],  args.maxlag, args.gamma)
+model = model_class(model_config, input_size, data_config['tpb'],  args.maxlag, args.gamma)
 print(model)
 
 # Build data models
 datamodule_class = getattr(loaders, loader_config['class']) 
-datamodule = datamodule_class(loader_config, data_config)
-
+datamodule = datamodule_class(loader_config, data_config, model_config['processing_mode'])
     
 # Loggers
 # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)

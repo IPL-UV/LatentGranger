@@ -1,7 +1,7 @@
 class: 'NDVI' 
 seed_idx: 0
 input_size: (150, 150)
-dense_input_size: 11719 
+flat_input_size: 11719 
 root: './databases/data/africa_ndvi/'
 template: 'ndvi_TMSTMP.nc'
 train: [2012, 2013, 2014, 2015, 2016]
@@ -11,7 +11,3 @@ batch_size: 1
 tpb: 200
 root_ENSO: './databases/data/inino34_daily.dat'
 root_LC: './databases/data/africa_LC.tif'
-data_loader:
-         class: 'Dense" 
-        
-

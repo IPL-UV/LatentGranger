@@ -4,7 +4,7 @@ import databases
 
 
 class BaseDataModule(pl.LightningDataModule):
-    def __init__(self, config, data_config):
+    def __init__(self, config, data_config, processing_mode):
 
         super().__init__()
 
@@ -18,9 +18,9 @@ class BaseDataModule(pl.LightningDataModule):
 
         data = getattr(databases, self.data_config['class']) 
 
-        self.data_train = data(self.data_config, 'train') 
-        self.data_val = data(self.data_config, 'val') 
-        self.data_test = data(self.data_config, 'test')
+        self.data_train = data(self.data_config, 'train', processing_mode) 
+        self.data_val = data(self.data_config, 'val', processing_mode) 
+        self.data_test = data(self.data_config, 'test', processing_mode)
         self.batch_size = self.data_config['batch_size']
 
     def train_dataloader(self):

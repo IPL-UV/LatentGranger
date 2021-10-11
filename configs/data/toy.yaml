@@ -1,14 +1,10 @@
 class: 'Toy'
-seed_idx: 0
 root: './databases/data/toy'
 input_size: (128, 128)
-input: 16384 
+flat_input_size: 16384 
 dimension: 1
-statistics_root: './databases/data/toy/data_py/statistics.npz'
 nsamples_train: 300
 nsamples_val: 300
 nsamples_test: 300
 batch_size: 1
 tpb: 300
-processing_mode: 'dense'
-

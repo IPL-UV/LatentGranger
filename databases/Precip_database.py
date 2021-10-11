@@ -23,7 +23,7 @@ class precip(torch.utils.data.Dataset):
     precip-ENSO database loader. 
     """
 
-    def __init__(self, config, mode='train', processing_mode = 'dense'):
+    def __init__(self, config, mode='train', processing_mode = 'flat'):
         self.config = config
         self.mode = mode
         self.processing_mode = processing_mode
@@ -101,7 +101,7 @@ class precip(torch.utils.data.Dataset):
             vals[j, :, :, 0] = x 
             
         
-        if self.processing_mode == 'dense':
+        if self.processing_mode == 'flat':
             # Discard background values according to LC and flatten if autoencoder is dense
             vals = np.reshape(vals, (self.tpb, -1))
             vals = vals[:,np.ndarray.flatten(self.LC)>0]

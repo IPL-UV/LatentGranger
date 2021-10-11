@@ -23,7 +23,7 @@ class NDVI(torch.utils.data.Dataset):
     NDVI-ENSO database loader. 
     """
 
-    def __init__(self, config, mode='train', processing_mode = 'dense'):
+    def __init__(self, config, mode='train', processing_mode='flat'):
         self.config = config
         self.mode = mode
         self.processing_mode = processing_mode
@@ -84,7 +84,7 @@ class NDVI(torch.utils.data.Dataset):
             ndvi[j, :, :, 0] = x 
             
         
-        if self.processing_mode == 'dense':
+        if self.processing_mode == 'flat':
             # Discard background values according to LC and flatten if autoencoder is dense
             ndvi = np.reshape(ndvi, (self.tpb, -1))
             ndvi = ndvi[:,np.ndarray.flatten(self.LC)>0]
