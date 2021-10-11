@@ -32,15 +32,15 @@ import loaders
 parser = argparse.ArgumentParser(description="ArgParse")
 parser.add_argument('-m', '--model', default='vae', type=str,
                   help='name of the model associated to a config file in configs/models/')
-parser.add_argument('-d', '--database', default='toy', type=str,
+parser.add_argument('-d', '--data', default='toy', type=str,
                   help='database name (default: toy) associated to a config file in configs/data/')
-parser.add_argument('--loader', default='cpu', type=str,
-                  help='loaders name (default: dense) associated to a config file in configs/loaders/')
-parser.add_argument('-l', '--lag', default=1, type=int,
+parser.add_argument('--loader', default='base', type=str,
+                  help='loaders name (default: base) associated to a config file in configs/loaders/')
+parser.add_argument('--maxlag', default=1, type=int,
                   help='lag (default: 1)')
-parser.add_argument('-b', '--beta', default=-1, type=float,
-                  help='beta (default: -1)')
-parse.add_argument('--gpu', default = 0, type = int, help = 'number of GPUs (0 for only CPU)')
+parser.add_argument('-g', '--gamma', default=0, type=float,
+                  help='gamma regulazier for granger penalty (default: 0)')
+parser.add_argument('--gpu', default = 0, type = int, help = 'number of GPUs (0 for only CPU)')
 
 args = parser.parse_args()
 
@@ -63,63 +63,46 @@ with open(f'configs/data/{args.data}.yaml') as file:
     data_config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-database = args.data
-arch = args.model 
-
 # Experiment ID
 repo = git.Repo(search_parent_directories=True)
 git_commit_sha = repo.head.object.hexsha[:7]
 
-experiment_id = str(datetime.now()) + git_commit_sha 
-experiment_dir =  os.path.join(args.save_dir, args.data, args.model, experiment_id) 
-os.mkdir(experiment_dir, exist_ok = True)
+experiment_id = str(datetime.now()) 
+log_dir =  os.path.join('logs', args.data, args.model, git_commit_sha, experiment_id) 
+checkpoints_dir =  os.path.join('logs', args.data, args.model, git_commit_sha, experiment_id) 
 
 # Build model
 
 model_class = getattr(models, model_config['class']) 
-model = LatentGranger(model_config, args.maxlag, args.beta)
-copyfile('./model/model.py', config['trainer']['save_dir']+'/model.py')
-
+model = model_class(model_config, data_config['input'], data_config['tpb'],  args.maxlag, args.gamma)
+print(model)
 
 # Build data models
-datamodel_class = getattr(loaders, loader_config['class']) 
-datamodel = datamodel_class(loader_config)
+datamodule_class = getattr(loaders, loader_config['class']) 
+datamodule = datamodule_class(loader_config, data_config)
 
-with open(config['trainer']['save_dir']+'/model.txt', 'w') as f:
-    print(model, file=f)
-    
     
 # Loggers
 # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
-tb_logger = pl_loggers.TensorBoardLogger('logs/'+database, name='LatentGranger', version=experiment_id)
-# wandb_logger = pl_loggers.WandbLogger(save_dir='logs/', project='template')
+tb_logger = pl_loggers.TensorBoardLogger(log_dir , name = args.model, version = experiment_id)
 
 # Callbacks
 # Init ModelCheckpoint callback, monitoring 'val_loss'
-checkpoint_callback = ModelCheckpoint(dirpath='checkpoints/'+database+'/'+arch+'/'+experiment_id,
+checkpoint_callback = ModelCheckpoint(dirpath= checkpoints_dir,
                                       filename='{epoch}-{val_loss:.5f}',
                                       mode='min', monitor='val_loss',
                                       save_last=True, save_top_k=5)
-early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=500, 
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=10, 
                                verbose=True, mode='min', strict=True)
 callbacks = [checkpoint_callback]  #, early_stopping]
 
-# Trainer
-# Resume from checkpoint
-if not os.path.isfile(config['arch']['resume']):
-    resume = None
-else:
-    resume = config['arch']['resume']
-    print('Resuming from checkpoint...')
 
 trainer = pl.Trainer(accumulate_grad_batches=1, callbacks=callbacks, 
-                     gpus=args.gpu, auto_select_gpus=True,
+                     gpus=args.gpu, auto_select_gpus= args.gpu > 0,
                      log_every_n_steps=10, logger=[tb_logger], 
-                     max_epochs=config['trainer']['epochs'],
+                     max_epochs=100,
                      num_sanity_val_steps=2,
-                     reload_dataloaders_every_epoch=True,
-                     replace_sampler_ddp=False, resume_from_checkpoint=resume, 
-                     val_check_interval=1.0, weights_summary='full') 
+                     weights_summary='full') 
             
 # Training
 trainer.fit(model, datamodule)

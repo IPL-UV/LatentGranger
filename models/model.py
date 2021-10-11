@@ -17,7 +17,7 @@ import pytorch_lightning as pl
 from .loss import *
 
 class bvae(pl.LightningModule):
-    def __init__(self, config, input_size, tpb, batch_size = 1, maxlags = 1):
+    def __init__(self, config, input_size, tpb, maxlags = 1, gamma = 0.0):
         super().__init__()
         
         # Save hyperparameters
@@ -25,14 +25,13 @@ class bvae(pl.LightningModule):
         
         # Config
         self.config = config
-        self.batch_size = batch_size
         self.tpb = tpb 
          
         # coefficient for granger regularization
-        self.beta = float(config['beta'])
+        self.gamma = float(gamma)
 
         # coefficient for beta-VAE
-        self.betaz = float(config['betaz'])
+        self.beta = float(config['beta'])
 
         # lag 
         self.lag = int(maxlags)
@@ -41,7 +40,6 @@ class bvae(pl.LightningModule):
         self.latent_dim = config['latent_dim']  
         self.encoder_out = eval(config['encoder']['out_features'])
         self.decoder_out = eval(config['decoder']['out_features'])
-        self.num_workers = int(self.config['data_loader']['num_workers'])
 
         ### define distribution for VAE
         self.N = torch.distributions.Normal(0,1) 
@@ -73,27 +71,12 @@ class bvae(pl.LightningModule):
         self.drop_layer = nn.Dropout(p=0.4)
 
         
-    def train_dataloader(self):
-        return DataLoader(self.data_train, batch_size=self.batch_size,
-                              shuffle=False, num_workers=self.num_workers,
-                              pin_memory=self.pin_memory)
-
-    def val_dataloader(self):
-        return DataLoader(self.data_train, batch_size=self.batch_size,
-                              shuffle=False, num_workers=self.num_workers,
-                              pin_memory=self.pin_memory)
-    
-    def test_dataloader(self):
-        return DataLoader(self.data_train, batch_size=self.batch_size,
-                              shuffle=False, num_workers=self.num_workers,
-                              pin_memory=self.pin_memory)
-    
     def forward(self, x):
         # Define forward pass
     
         # Reshape to (b_s*tpb, ...)
         x_shape_or = np.shape(x)[2:]
-        x = torch.reshape(x, (self.batch_size*self.tpb,) + x_shape_or)
+        x = torch.reshape(x, (self.tpb,) + x_shape_or)
         
         # Encoder
         for i in np.arange(len(self.encoder_out)):
@@ -108,7 +91,7 @@ class bvae(pl.LightningModule):
         
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
-        x_latent = torch.reshape(x, (self.batch_size, self.tpb,-1))
+        x_latent = torch.reshape(x, (1, self.tpb,-1))
 
         # Decoder
         for i in np.arange(len(self.decoder_out)):
@@ -119,7 +102,7 @@ class bvae(pl.LightningModule):
         x = self.output_layer(x)
         
         # Reshape to (b_s, tpb, ...)
-        x = torch.reshape(x, (self.batch_size, self.tpb,) + x_shape_or)
+        x = torch.reshape(x, (1, self.tpb,) + x_shape_or)
         
         return x, x_latent, mu, sigma
     
@@ -130,14 +113,14 @@ class bvae(pl.LightningModule):
         x_out, x_latent, mu, sigma = self(x)
         
         # Compute loss
-        loss = torch.tensor([0.0]).to(self.user_device)
+        loss = torch.tensor([0.0])
         
-        kl_loss = self.betaz*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        kl_loss = self.beta*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
         mse_loss = F.mse_loss(x_out,x)
         loss += mse_loss + kl_loss
         
         # Granger loss
-        Granger_loss = self.beta * granger_simple_loss(x_latent, target, maxlag = self.lag)
+        Granger_loss = self.gamma * granger_simple_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
 
 
@@ -170,15 +153,15 @@ class bvae(pl.LightningModule):
         x_out, x_latent, mu, sigma = self(x)
         
         # Compute loss
-        loss = torch.tensor([0.0]).to(self.user_device)
+        loss = torch.tensor([0.0])
 
 
-        kl_loss = self.betaz*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        kl_loss = self.beta*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
         mse_loss = F.mse_loss(x_out,x)
         loss += mse_loss + kl_loss
         
         # Granger loss
-        Granger_loss = self.beta * granger_simple_loss(x_latent, target, maxlag = self.lag)
+        Granger_loss = self.gamma * granger_simple_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
 
         return {'val_loss': loss,
@@ -210,14 +193,14 @@ class bvae(pl.LightningModule):
         x_out, x_latent, mu, sigma = self(x)
         
         # Compute loss
-        loss = torch.tensor([0.0]).to(self.user_device)
+        loss = torch.tensor([0.0])
         
 
-        kl_loss = selg.betaz*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
+        kl_loss = self.beta*(sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
         mse_loss = F.mse_loss(x_out,x)
         loss += mse_loss + kl_loss       
 
-        Granger_loss = self.beta * granger_simple_loss(x_latent, target, maxlag = self.lag)
+        Granger_loss = self.gamma * granger_simple_loss(x_latent, target, maxlag = self.lag)
         loss += Granger_loss
         
 
@@ -244,9 +227,9 @@ class bvae(pl.LightningModule):
         self.logger.experiment[0].add_scalars("granger_losses", {"test": np.nanmean(Granger_loss)}, global_step=self.current_epoch)
 
 
-    #def configure_optimizers(self):
-    #    # build optimizer
-    #    trainable_params = filter(lambda p: p.requires_grad, self.parameters())
-    #    optimizer = torch.optim.Adam(trainable_params, lr=self.config['optimizer']['lr'], weight_decay=self.config['optimizer']['weight_decay'])
-        
-    #    return optimizer
+    def configure_optimizers(self):
+        # build optimizer
+        trainable_params = filter(lambda p: p.requires_grad, self.parameters())
+        optimizer = torch.optim.Adam(trainable_params, lr=self.config['optimizer']['lr'], weight_decay=self.config['optimizer']['weight_decay'])
+       
+        return optimizer
