@@ -11,7 +11,7 @@ dependencies:
   - brunsli=0.1=h2531618_0
   - bzip2=1.0.8=h7b6447c_0
   - c-ares=1.17.1=h27cfd23_0
-  - ca-certificates=2021.7.5=h06a4308_1
+  - ca-certificates=2021.9.30=h06a4308_1
   - certifi=2021.5.30=py39h06a4308_0
   - cfitsio=3.470=hf0d0db6_6
   - cftime=1.5.0=py39h6323ea4_0
@@ -29,6 +29,8 @@ dependencies:
   - fonttools=4.25.0=pyhd3eb1b0_0
   - freetype=2.10.4=h5ab3b9f_0
   - giflib=5.1.4=h14c3975_1
+  - gitdb=4.0.7=pyhd3eb1b0_0
+  - gitpython=3.1.18=pyhd3eb1b0_1
   - glib=2.69.1=h5202010_0
   - gmp=6.2.1=h2531618_2
   - gnutls=3.6.15=he1e5248_0
@@ -115,6 +117,7 @@ dependencies:
   - setuptools=58.0.4=py39h06a4308_0
   - sip=4.19.13=py39h2531618_0
   - six=1.16.0=pyhd3eb1b0_0
+  - smmap=4.0.0=pyhd3eb1b0_0
   - snappy=1.1.8=he6710b0_0
   - sqlite=3.36.0=hc218d9a_0
   - tifffile=2021.7.2=pyhd3eb1b0_2
@@ -123,6 +126,7 @@ dependencies:
   - torchaudio=0.9.1=py39
   - torchvision=0.10.1=py39_cpu
   - tornado=6.1=py39h27cfd23_0
+  - typing-extensions=3.10.0.2=hd3eb1b0_0
   - typing_extensions=3.10.0.2=pyh06a4308_0
   - tzdata=2021a=h5d7bf9c_0
   - wheel=0.37.0=pyhd3eb1b0_1
@@ -166,4 +170,3 @@ dependencies:
     - urllib3==1.26.6
     - werkzeug==2.0.1
     - yarl==1.6.3
-prefix: /home/gherardo/miniconda3/envs/latentgranger
