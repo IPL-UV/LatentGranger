@@ -18,7 +18,7 @@ The used conda (tested with v4.10.1) environment with the complete list of libra
 ### train the autoencoder 
 
 ```
-## this will train the autoencoder over the Toy dataset with beta = 0.01 nad max lag = 5
+## this will train the autoencoder over the Toy dataset with gamma = 0.01 nad max lag = 5
 python3 main.py -d toy -g 0.01 --maxlag 5 
 ```
 
