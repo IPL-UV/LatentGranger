@@ -41,6 +41,8 @@ parser.add_argument('--maxlag', default=1, type=int,
 parser.add_argument('-g', '--gamma', default=0, type=float,
                   help='gamma regulazier for granger penalty (default: 0)')
 parser.add_argument('--gpu', default = 0, type = int, help = 'number of GPUs (0 for only CPU)')
+parser.add_argument('--epochs', default = 100, type = int, help = 'maximum number of epochs (default: 100)')
+parser.add_argument('--earlystop', action = 'store_true', help = 'whether to use early stopping')
 
 args = parser.parse_args()
 
@@ -99,13 +101,17 @@ checkpoint_callback = ModelCheckpoint(dirpath= checkpoints_dir,
 
 early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=10, 
                                verbose=False, mode='min', strict=True)
-callbacks = [checkpoint_callback, early_stopping]
+
+callbacks = [checkpoint_callback]
+
+if args.earlystop:
+   callbacks += [early_stopping]
 
 
 trainer = pl.Trainer(accumulate_grad_batches=1, callbacks=callbacks, 
                      gpus=args.gpu, auto_select_gpus= args.gpu > 0,
                      log_every_n_steps=10, logger=[tb_logger], 
-                     max_epochs=100,
+                     max_epochs=args.epochs,
                      num_sanity_val_steps=2,
                      weights_summary='full') 
             
