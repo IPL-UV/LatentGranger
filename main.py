@@ -78,7 +78,7 @@ checkpoints_dir =  os.path.join('checkpoints', args.data, args.model, git_commit
 if model_config['processing_mode'] == 'flat':
    input_size = data_config['flat_input_size']
 else:
-   input_size = eval(data_config['input_size'])
+   input_size = tuple(data_config['input_size'])
 
 model_class = getattr(models, model_config['class']) 
 model = model_class(model_config, input_size, data_config['tpb'],  args.maxlag, args.gamma)

@@ -41,8 +41,8 @@ class bvaeconv(pl.LightningModule):
 
         # read from config
         self.latent_dim = self.config['latent_dim']  
-        self.encoder_out = eval(self.config['encoder']['out_features'])
-        self.decoder_out = eval(self.config['decoder']['out_features'])
+        self.encoder_out = tuple(self.config['encoder']['out_features'])
+        self.decoder_out = tuple(self.config['decoder']['out_features'])
 
         self.tpb = tpb
         self.input_size = input_size
