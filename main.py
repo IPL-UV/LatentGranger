@@ -99,7 +99,7 @@ checkpoint_callback = ModelCheckpoint(dirpath= checkpoints_dir,
                                       mode='min', monitor='val_loss',
                                       save_last=True, save_top_k=5)
 
-early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=10, 
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0, patience=20, 
                                verbose=False, mode='min', strict=True)
 
 callbacks = [checkpoint_callback]

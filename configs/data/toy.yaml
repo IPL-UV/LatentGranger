@@ -7,4 +7,4 @@ nsamples_train: 600
 nsamples_val: 600
 nsamples_test: 600
 batch_size: 1
-tpb: 600
+tpb: 500
