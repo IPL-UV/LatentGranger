@@ -93,7 +93,7 @@ def main(args):
        callbacks += [early_stopping]
     
     
-    trainer = pl.Trainer.from_argparse_args(args, logger = [tb_logger])
+    trainer = pl.Trainer.from_argparse_args(args, logger = [tb_logger], callbacks=callbacks)
     #trainer = pl.Trainer(accumulate_grad_batches=1, callbacks=callbacks, 
     #                     gpus=args.gpus, auto_select_gpus= args.gpus > 0,
     #                     log_every_n_steps=10, logger=[tb_logger], 
@@ -130,5 +130,3 @@ if __name__ == '__main__':
    
    args = parser.parse_args()
    main(args)
-
-
