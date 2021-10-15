@@ -20,7 +20,7 @@ from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 # Model
-import models
+import archs
 import loaders
 
 
@@ -28,10 +28,10 @@ def main(args):
 
     # Load YAML config files  into a dict variable
 
-    with open(f'configs/models/{args.model}.yaml') as file:
+    with open(f'configs/archs/{args.arch}.yaml') as file:
         # The FullLoader parameter handles the conversion from YAML
         # scalar values to Python dictionary format
-        model_config = yaml.load(file, Loader=yaml.FullLoader)
+        arch_config = yaml.load(file, Loader=yaml.FullLoader)
 
     with open(f'configs/loaders/{args.loader}.yaml') as file:
         # The FullLoader parameter handles the conversion from YAML
@@ -48,31 +48,31 @@ def main(args):
     git_commit_sha = repo.head.object.hexsha[:7]
 
     experiment_id = str(datetime.now())
-    log_dir = os.path.join(args.dir, 'logs', args.data, args.model,
+    log_dir = os.path.join(args.dir, 'logs', args.data, args.arch,
                            git_commit_sha, experiment_id)
     checkpoints_dir = os.path.join(args.dir, 'checkpoints',
-                                   args.data, args.model,
+                                   args.data, args.arch,
                                    git_commit_sha, experiment_id)
 
     # Build model
 
-    if model_config['processing_mode'] == 'flat':
+    if arch_config['processing_mode'] == 'flat':
         input_size = data_config['flat_input_size']
     else:
         input_size = tuple(data_config['input_size'])
 
-    model_class = getattr(models, model_config['class'])
-    model = model_class(model_config, input_size, data_config['tpb'],
+    model_class = getattr(archs, arch_config['class'])
+    model = model_class(arch_config, input_size, data_config['tpb'],
                         args.maxlag, args.gamma)
     print(model)
 
-    # Build data models
+    # Build data module
     datamodule_class = getattr(loaders, loader_config['class'])
     datamodule = datamodule_class(loader_config, data_config,
-                                  model_config['processing_mode'])
+                                  arch_config['processing_mode'])
 
     # Loggers
-    tb_logger = pl_loggers.TensorBoardLogger(log_dir, name=args.model,
+    tb_logger = pl_loggers.TensorBoardLogger(log_dir, name=args.arch,
                                              version=experiment_id)
 
     # Callbacks
@@ -104,9 +104,9 @@ if __name__ == '__main__':
     # ArgParse
     parser = argparse.ArgumentParser(description="ArgParse")
     parser = pl.Trainer.add_argparse_args(parser)
-    parser.add_argument('-m', '--model', default='vae', type=str,
-                        help='name of the model associated to a config file ' +
-                             'in configs/models/')
+    parser.add_argument('--arch', default='vae', type=str,
+                        help='name of the architecture associated to a config file ' +
+                             'in configs/archs/')
     parser.add_argument('-d', '--data', default='toy', type=str,
                         help='database name (default: toy) associated to a ' +
                              'config file in configs/data/')
