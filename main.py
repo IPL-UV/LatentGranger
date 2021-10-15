@@ -55,8 +55,9 @@ def main(args):
     git_commit_sha = repo.head.object.hexsha[:7]
     
     experiment_id = str(datetime.now()) 
-    log_dir =  os.path.join('logs', args.data, args.model, git_commit_sha, experiment_id) 
-    checkpoints_dir =  os.path.join('checkpoints', args.data, args.model, git_commit_sha, experiment_id) 
+    log_dir =  os.path.join(args.dir, 'logs', args.data, args.model, git_commit_sha, experiment_id) 
+    checkpoints_dir =  os.path.join(args.dir, 'checkpoints', args.data, args.model,
+                                    git_commit_sha, experiment_id) 
     
     # Build model
     
@@ -125,6 +126,7 @@ if __name__ == '__main__':
    parser.add_argument('-g', '--gamma', default=0, type=float,
                      help='gamma regulazier for granger penalty (default: 0)')
    parser.add_argument('--earlystop', action = 'store_true', help = 'whether to use early stopping')
+   parser.add_argument('--dir', default="experiment", type=str, help = 'experiemnt directory')
    
    
    
