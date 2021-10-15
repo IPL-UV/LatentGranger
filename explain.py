@@ -26,7 +26,7 @@ from PIL import Image
 
 import loaders
 # Model
-import models 
+import archs 
 from models import lag_cor  
 from models import granger_loss 
 from utils import *
@@ -40,12 +40,14 @@ from captum.attr import NeuronConductance, NeuronIntegratedGradients
 # ArgParse
 parser = argparse.ArgumentParser(description="ArgParse")
 
-parser.add_argument('-m', '--model', default='vae', type=str,
-                  help='model name (default: vae)')
+parser.add_argument('--arch', default='vae', type=str,
+                  help='arch name (default: vae)')
 parser.add_argument('-d', '--data', default='toy', type=str,
                   help='database name (default: toy)')
 parser.add_argument('--loader', default='base', type=str,
                   help='loaders name (default: base) associated to a config file in configs/loaders/')
+parser.add_argument('--dir', default='experiment', type=str,
+                  help='path to experiment folder')
 parser.add_argument('-c','--checkpoint', default='last.ckpt', type=str,
                   help='checkpoint (default: last)')
 parser.add_argument('--commit', default='', type=str,
@@ -77,8 +79,8 @@ else:
    git_commit_sha = args.commit
 
 
-log_root =  os.path.join('logs', args.data, args.model, git_commit_sha) 
-check_root =  os.path.join('checkpoints', args.data, args.model, git_commit_sha) 
+log_root =  os.path.join(argr.dir, 'logs', args.data, args.arch, git_commit_sha) 
+check_root =  os.path.join(args.dir, 'checkpoints', args.data, args.arch, git_commit_sha) 
 
 print(check_root)
 allchckpts = natsorted(
@@ -101,14 +103,14 @@ checkpoint = os.path.join(check_root, chosen, args.checkpoint)
 
 print('chosen checkpoint: ' + checkpoint)
 
-with open(f'configs/models/{args.model}.yaml') as file:
+with open(f'configs/archs/{args.arch}.yaml') as file:
     # The FullLoader parameter handles the conversion from YAML
     # scalar values to Python dictionary format
-    model_config = yaml.load(file, Loader=yaml.FullLoader)
+    arch_config = yaml.load(file, Loader=yaml.FullLoader)
 
 
 ## define the model and load the checkpoint
-model = getattr(models, model_config['class']).load_from_checkpoint(checkpoint)
+model = getattr(archs, arch_config['class']).load_from_checkpoint(checkpoint)
 
 print("model loaded with chosen checkpoint") 
 
@@ -131,7 +133,7 @@ with open(f'configs/data/{args.data}.yaml') as file:
     data_config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-# Build data models
+# Build data module
 datamodule_class = getattr(loaders, loader_config['class']) 
 datamodule = datamodule_class(loader_config, data_config, model_config['processing_mode'])
  

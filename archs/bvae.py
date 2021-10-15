@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from .loss import granger_loss
+from losses import granger_loss
 
 
 class bvae(pl.LightningModule):
