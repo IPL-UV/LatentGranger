@@ -147,3 +147,6 @@ checkpoints/
 viz/
 predictions/
 databases/data/
+
+
+*.swp 
