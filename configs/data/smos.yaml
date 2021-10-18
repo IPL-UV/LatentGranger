@@ -1,0 +1,11 @@
+class: 'smos'
+seed_idx: 0
+input_size: [584, 1388]
+flat_input_size: 146349 
+root: './databases/data/smos/'
+nsamples_train: 150
+nsamples_val: 150
+nsamples_test: 150
+tpb: 100
+target: './databases/data/ENSO4_2010to2017_5D.nc'
+mask: './databases/data/smos_mask.nc'
