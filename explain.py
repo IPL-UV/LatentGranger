@@ -27,8 +27,8 @@ from PIL import Image
 import loaders
 # Model
 import archs 
-from models import lag_cor  
-from models import granger_loss 
+from losses import lag_cor  
+from losses import granger_loss 
 from utils import *
 
 # PyTorch Captum for XAI
@@ -79,7 +79,7 @@ else:
    git_commit_sha = args.commit
 
 
-log_root =  os.path.join(argr.dir, 'logs', args.data, args.arch, git_commit_sha) 
+log_root =  os.path.join(args.dir, 'logs', args.data, args.arch, git_commit_sha) 
 check_root =  os.path.join(args.dir, 'checkpoints', args.data, args.arch, git_commit_sha) 
 
 print(check_root)
@@ -135,7 +135,7 @@ with open(f'configs/data/{args.data}.yaml') as file:
 
 # Build data module
 datamodule_class = getattr(loaders, loader_config['class']) 
-datamodule = datamodule_class(loader_config, data_config, model_config['processing_mode'])
+datamodule = datamodule_class(loader_config, data_config, arch_config['processing_mode'])
  
 
 #####################   here we can do inference, plot ##############

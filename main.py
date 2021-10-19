@@ -54,6 +54,13 @@ def main(args):
                                    args.data, args.arch,
                                    git_commit_sha, experiment_id)
 
+    os.makedirs(args.dir, exist_ok = True)
+    pathlogfile = os.path.join(args.dir, 'log.txt') 
+    with open(pathlogfile, "a") as logfile:
+        logfile.write(f'{experiment_id}, {git_commit_sha}, {args.arch}, '+
+                        f'{args.data}, {args.loader}, {args.gamma}, '+
+                        f'{args.maxlag}')
+
     # Build model
 
     if arch_config['processing_mode'] == 'flat':
@@ -105,7 +112,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="ArgParse")
     parser = pl.Trainer.add_argparse_args(parser)
     parser.add_argument('--arch', default='vae', type=str,
-                        help='name of the architecture associated to a config file ' +
+                        help='name of the architecture associated' +
+                             'to a config file' +
                              'in configs/archs/')
     parser.add_argument('-d', '--data', default='toy', type=str,
                         help='database name (default: toy) associated to a ' +

@@ -39,6 +39,11 @@ class bvae(pl.LightningModule):
 
         # read from config
         self.latent_dim = config['latent_dim']
+        self.causal_latents = config['causal_latents']
+        if self.causal_latents > self.latent_dim:
+            raise NameError('latent dimension should be greater or equal' +
+                            ' then the number of causal latents, check' +
+                            ' the arch config file.')
         self.encoder_out = config['encoder']['out_features']
         self.decoder_out = config['decoder']['out_features']
 
@@ -119,7 +124,10 @@ class bvae(pl.LightningModule):
         loss += mse_loss + self.beta * kl_loss
 
         # Granger loss
-        g_loss = granger_loss(x_latent, target, maxlag=self.lag)
+        g_loss = 0
+        for idx in range(self.causal_latents):
+            g_loss += granger_loss(x_latent, target,
+                                   maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
         self.log('loss', {"train": loss}, on_step=False,
@@ -145,7 +153,10 @@ class bvae(pl.LightningModule):
         loss += mse_loss + self.beta * kl_loss
 
         # Granger loss
-        g_loss = granger_loss(x_latent, target, maxlag=self.lag)
+        g_loss = 0
+        for idx in range(self.causal_latents):
+            g_loss += granger_loss(x_latent, target,
+                                   maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
         self.log('loss', {"val": loss}, on_step=False,
@@ -169,7 +180,10 @@ class bvae(pl.LightningModule):
         mse_loss = F.mse_loss(x_out, x, reduction='mean')
         loss += mse_loss + self.beta * kl_loss
 
-        g_loss = granger_loss(x_latent, target, maxlag=self.lag)
+        g_loss = 0
+        for idx in range(self.causal_latents):
+            g_loss += granger_loss(x_latent, target,
+                                   maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
         self.log('loss', {"test": loss}, on_step=False,
