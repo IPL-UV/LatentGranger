@@ -8,18 +8,27 @@ The `LatentGranger` code is developed with:
 - pytorch 1.9.1  
 - pytorch-lightning 1.4.7
 
+The used anaconda (tested with v4.10.1) environment with the complete list of
+libraries is  described in `environment.yaml`.  
 
-The used conda (tested with v4.10.1) environment with the complete list of libraries 
- is  described in `environment.yaml`.  
+## data
 
+## architectures
+
+### beta vae with fully connected
+
+### beta vae with convolutional layers
 
 ## usage 
+
+
 
 ### train the autoencoder 
 
 ```
-## this will train the autoencoder over the Toy dataset with gamma = 0.01 nad max lag = 5
-python3 main.py -d toy -g 0.01 --maxlag 5 
+## this will train a simple VAE with fully conected layers over the Toy dataset 
+## with gamma = 0.01 nad max lag = 5
+python3 main.py -d toy --arch vae -g 0.01 --maxlag 5  
 ```
 
 ### XAI
