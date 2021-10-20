@@ -189,9 +189,17 @@ else:
    mask = avg[:,:,0] == 0 
 
 tpb = model.tpb 
-imout[mask, 0] = x.detach().numpy()[0, args.idx, :]
-imout[mask, 1] = x_out.detach().numpy()[0, args.idx, :]
-imout[mask, 2] = (imout[mask, 0] - imout[mask, 1])**2
+
+if arch_config['processing_mode']== 'flat':
+    imout[mask, 0] = x.detach().numpy()[0, args.idx, :]
+    imout[mask, 1] = x_out.detach().numpy()[0, args.idx, :]
+    imout[mask, 2] = (imout[mask, 0] - imout[mask, 1])**2
+else:
+    imout[:, :, 0] = x.detach().numpy()[0, args.idx, :, :, 0]
+    imout[:, :, 1] = x_out.detach().numpy()[0, args.idx, :, :, 0]
+    imout[:, :, 2] = (imout[:, :, 0] - imout[:, :, 1])**2
+
+
 if args.grad:
     for j in range(latent.shape[-1]):
         grad = np.zeros(x.shape[1:]) 
