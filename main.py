@@ -59,7 +59,7 @@ def main(args):
     with open(pathlogfile, "a") as logfile:
         logfile.write(f'{experiment_id}, {git_commit_sha}, {args.arch}, '+
                         f'{args.data}, {args.loader}, {args.gamma}, '+
-                        f'{args.maxlag}')
+                        f'{args.maxlag}\n')
 
     # Build model
 
