@@ -119,8 +119,8 @@ class bvae(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0])
 
-        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).mean()
-        mse_loss = F.mse_loss(x_out, x, reduction='mean')
+        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
+        mse_loss = F.mse_loss(x_out, x, reduction='sum')
         loss += mse_loss + self.beta * kl_loss
 
         # Granger loss
@@ -148,8 +148,8 @@ class bvae(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0])
 
-        kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1 / 2).mean()
-        mse_loss = F.mse_loss(x_out, x, reduction='mean')
+        kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1 / 2).sum()
+        mse_loss = F.mse_loss(x_out, x, reduction='sum')
         loss += mse_loss + self.beta * kl_loss
 
         # Granger loss
@@ -176,8 +176,8 @@ class bvae(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0])
 
-        kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1/2).mean()
-        mse_loss = F.mse_loss(x_out, x, reduction='mean')
+        kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1/2).sum()
+        mse_loss = F.mse_loss(x_out, x, reduction='sum')
         loss += mse_loss + self.beta * kl_loss
 
         g_loss = 0
