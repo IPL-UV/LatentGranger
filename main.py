@@ -43,6 +43,8 @@ def main(args):
         # scalar values to Python dictionary format
         data_config = yaml.load(file, Loader=yaml.FullLoader)
 
+
+
     # Experiment ID
     repo = git.Repo(search_parent_directories=True)
     git_commit_sha = repo.head.object.hexsha[:7]
@@ -69,6 +71,7 @@ def main(args):
         input_size = tuple(data_config['input_size'])
 
     model_class = getattr(archs, arch_config['class'])
+    pl.utilities.seed.seed_everything(seed=0)
     model = model_class(arch_config, input_size, data_config['tpb'],
                         args.maxlag, args.gamma)
     print(model)
