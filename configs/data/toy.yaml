@@ -1,7 +1,7 @@
 class: 'Toy'
 root: './databases/data/toy'
-input_size: [128, 128]
-flat_input_size: 16384 
+input_size: [28, 28]
+flat_input_size: 784 
 dimension: 1
 nsamples_train: 600
 nsamples_val: 600
