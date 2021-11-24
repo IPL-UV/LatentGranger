@@ -1,4 +1,4 @@
-n <- 128
+n <- 28
 message("image size set to: ", n) 
 tt <- 2000
 message("number of time steps set to: ", tt) 
@@ -12,8 +12,8 @@ m1 <- mean(cube[1:d, 1:d, 1])
 target <-vector(mode = 'double', length = tt)
 target[1] <- m1
 for (t in 2:tt){
-  cube[1:d, 1:d, t] <-  0.5*cube[1:d, 1:d, t-1] + 0.5 * true[t-1] + runif(d*d, min = -1, max = 1)
-  cube[(n+1-d):n, (n+1-d):n, t] <- 0.5*cube[(n+1-d):n, (n+1-d):n, t - 1] + 0.5 * hidden[t-1] + runif(d*d, min = -1, max = 1)
+  cube[1:d, 1:d, t] <-  0.5*cube[1:d, 1:d, t-1] + 0.5 * true[t-1] + runif(d*d, min = -0.1, max = 0.1)
+  cube[(n+1-d):n, (n+1-d):n, t] <- 0.5*cube[(n+1-d):n, (n+1-d):n, t - 1] + 0.5 * hidden[t-1] + runif(d*d, min = -0.1, max = 0.1)
 }
 
 library(raster)
