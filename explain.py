@@ -206,8 +206,10 @@ if args.grad:
         for i in range(tpb): 
             mu[i,j].backward(retain_graph = True)
             grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
+            #grad[i,:] += x.grad.numpy()[0,i,:]
             x.grad.fill_(0.0)
-        avg[:,:,j][mask] = grad.mean(0)
+        avg[:,:,j][mask] = np.mean(grad, 0)
+        #avg[:,:,j] = grad.mean(0)[:,:,0]
 
 if args.save:
     img = Image.fromarray(imout[:,:,1])
