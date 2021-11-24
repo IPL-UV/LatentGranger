@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-arch=$1
-
-gammas=(0 0.01 0.1 0.5 1 1.5 2 5 10 20 100)
+gammas=(0 10 100 250 500 750 1000 2500 5000)
 for gamma in ${gammas[@]}; do
-python main.py --arch ${arch} -d toy -g ${gamma} --maxlag 5 --max_epochs 100 --limit_train_batches 20 --earlystop --dir "toy_exp"
+python main.py --arch vaetoy -d toy -g ${gamma} --maxlag 5 --max_epochs 200 --limit_train_batches 10 --dir "toy_exp"
 done
