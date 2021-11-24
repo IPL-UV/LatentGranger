@@ -48,12 +48,12 @@ def main(args):
     # Experiment ID
     repo = git.Repo(search_parent_directories=True)
     if repo.is_dirty():
-       kg = input("WARNING: the current repo has not tracked changes\n" + 
-             "if you continue, any saved results will" + 
-             " not be correctly associated to a commit hash\n" + 
-             "type yes(y) to continue anyway: ")
-       if kg != "yes" and kg != "y": 
-           return 
+        kg = input("WARNING: the current repo has not tracked changes\n" + 
+              "if you continue, any saved results will" + 
+              " not be correctly associated to a commit hash\n" + 
+              "type yes(y) to continue anyway: ")
+        if kg != "yes" and kg != "y": 
+            return
     git_commit_sha = repo.head.object.hexsha[:7]
 
     experiment_id = str(datetime.now())
@@ -63,12 +63,9 @@ def main(args):
                                    args.data, args.arch,
                                    git_commit_sha, experiment_id)
 
-    os.makedirs(args.dir, exist_ok = True)
-    pathlogfile = os.path.join(args.dir, 'log.txt') 
-    with open(pathlogfile, "a") as logfile:
-        logfile.write(f'{experiment_id}, {git_commit_sha}, {args.arch}, '+
-                        f'{args.data}, {args.loader}, {args.gamma}, '+
-                        f'{args.maxlag}\n')
+    os.makedirs(args.dir, exist_ok=True)
+    pathlogfile = os.path.join(args.dir, 'log.txt')
+
 
     # Build model
 
@@ -114,7 +111,14 @@ def main(args):
     trainer.fit(model, datamodule)
 
     # Test
-    trainer.test(ckpt_path='best')
+    res = trainer.test(ckpt_path='best')
+    mse_test = res[0]["mse_loss"]["test"].detach().numpy()
+    granger_test = res[0]["granger_loss"]["test"].detach().numpy()
+
+    with open(pathlogfile, "a") as logfile:
+        logfile.write(f'{experiment_id},{git_commit_sha},{args.arch},' +
+                      f'{args.data},{args.loader},{args.gamma},' +
+                      f'{args.maxlag},{mse_test},{granger_test}\n')
 
 
 if __name__ == '__main__':

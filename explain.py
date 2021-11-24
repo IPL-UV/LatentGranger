@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+# BSD 3-Clause License (see LICENSE file)
+# Copyright (c) Image and Signaling Process Group (ISP) IPL-UV 2021
+# All rights reserved.
+
 """
 Explain latent space of LatentGranger
-
-
-Anonymized code submitted alongide 
-the manuscript titled 
-Learning Granger Causal Feature Representations 
-
-please do not distribute
 """
 
 import os
