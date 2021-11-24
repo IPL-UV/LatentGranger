@@ -47,6 +47,13 @@ def main(args):
 
     # Experiment ID
     repo = git.Repo(search_parent_directories=True)
+    if repo.is_dirty():
+       kg = input("WARNING: the current repo has not tracked changes\n" + 
+             "if you continue, any saved results will" + 
+             " not be correctly associated to a commit hash\n" + 
+             "type yes(y) to continue anyway: ")
+       if kg != "yes" and kg != "y": 
+           return 
     git_commit_sha = repo.head.object.hexsha[:7]
 
     experiment_id = str(datetime.now())
