@@ -1,10 +1,10 @@
 class: 'bvae'
 encoder:
     out_features: [512, 256, 128]
-latent_dim: 10 
-causal_latents: 2
+latent_dim: 3 
+causal_latents: 1
 decoder:
-    out_features: [128, 256, 512]
+    out_features: [256]
 beta: 1
 processing_mode: 'flat'
 optimizer:
