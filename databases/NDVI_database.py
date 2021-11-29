@@ -62,7 +62,30 @@ class NDVI(torch.utils.data.Dataset):
             ENSO_tmp = ENSO_tmp[self.days - 1, :]
             self.ENSO.append(ENSO_tmp)
         self.ENSO = np.concatenate(self.ENSO)[:, 1]
+    
+    def getAll(self):
+        # Features
+        x = ()
+        # ENSO
+        enso = torch.Tensor(self.ENSO)
 
+        # NDVI
+        img_paths = self.paths
+        ndvi = np.zeros((len(img_paths),) + self.input_size + (1,), dtype="float32")
+        for j, path in enumerate(img_paths):
+            data = nc.Dataset(path)
+            x = np.array(data['ndvi'])
+            x[x == data['ndvi']._FillValue] = 0.0  # set NA to 0.0
+            ndvi[j, :, :, 0] = x
+
+        # flatten if processing_mode is flat
+        if self.processing_mode == 'flat':
+            ndvi = np.reshape(ndvi, (len(img_paths), -1))
+            ndvi = ndvi[:, np.ndarray.flatten(self.mask)]
+
+        ndvi = torch.Tensor(ndvi)
+        return ndvi, enso
+   
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""
         # Features

@@ -56,6 +56,20 @@ class Toy(torch.utils.data.Dataset):
             self._input_img_paths = \
                 self._input_img_paths[self.nsamples_train+self.nsamples_val:self.nsamples_train+self.nsamples_val + self.nsamples_test]
 
+    def getAll(self):
+        img_paths = self._input_img_paths
+        x = np.zeros((len(img_paths),) + self.input_size + (1,), dtype="float32")
+        y = self.target
+        for j, path in enumerate(img_paths):
+            img = imread(path)
+            x[j, :, :, 0] = img / 255.0
+        if self.processing_mode == 'flat':
+            x = np.reshape(x, (len(img_paths), -1))
+        x = torch.Tensor(x)
+        y = torch.Tensor(y)
+
+        return x, y
+
 
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""
@@ -69,7 +83,6 @@ class Toy(torch.utils.data.Dataset):
             x = np.reshape(x, (self.tbp, -1))
         x = torch.Tensor(x)
         y = torch.Tensor(y)
-
 
         return x, y
 
