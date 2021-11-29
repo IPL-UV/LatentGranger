@@ -64,6 +64,8 @@ parser.add_argument('--extract', action = 'store_true',
                   help='extract latent series')
 parser.add_argument('--nig', action = 'store_true',
                   help='run NIG')
+parser.add_argument('--latint', action = 'store_true',
+                  help='run LATENT INTERVENTIONS')
 parser.add_argument('--idx', type=int, default = 0,
                   help='index of reconstruction to plot')
 
@@ -130,7 +132,6 @@ with open(f'configs/data/{args.data}.yaml') as file:
     # scalar values to Python dictionary format
     data_config = yaml.load(file, Loader=yaml.FullLoader)
 
-
 # Build data module
 datamodule_class = getattr(loaders, loader_config['class']) 
 datamodule = datamodule_class(loader_config, data_config, arch_config['processing_mode'])
@@ -149,7 +150,7 @@ else:
 savedir = os.path.join('viz', chosen)
 os.makedirs(savedir, exist_ok = True)
 
-x, target = data[0] 
+x, target = data.getAll() 
 x = torch.reshape(x, (1,) + x.shape)
 x.requires_grad_()
 target = torch.reshape(target, (1,) + target.shape)
@@ -173,7 +174,6 @@ else:
 
 
 ### compute gradient and plot or save 
-
 
 if hasattr(data, 'mask'): 
    mask = data.mask 
@@ -199,13 +199,13 @@ else:
 if args.grad:
     for j in range(latent.shape[-1]):
         grad = np.zeros(x.shape[1:]) 
-        for i in range(tpb): 
+        for i in range(latent.shape[1]): 
             mu[i,j].backward(retain_graph = True)
             grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
             #grad[i,:] += x.grad.numpy()[0,i,:]
             x.grad.fill_(0.0)
-        #avg[:,:,j][mask] = np.mean(grad, 0)
-        avg[:,:,j][mask] = np.amax(grad, 0)
+        avg[:,:,j][mask] = np.mean(grad, 0)
+        #avg[:,:,j][mask] = np.amax(grad, 0)
         #avg[:,:,j] = grad.mean(0)[:,:,0]
 
 if args.save:
@@ -216,13 +216,10 @@ if args.save:
         img = Image.fromarray(avg[:,:,j])
         svpth = os.path.join(savedir, f'{chosen}_grad_avg_latent{j}_lag={model.lag}.tiff')
         img.save(svpth)
-
 else:
     plot_output(imout)
     if args.grad: 
        plot_output(avg)
-
-
 
 
 if args.extract:
@@ -254,3 +251,25 @@ if args.nig:
             imgarray[mask] = attr_maps.detach().numpy()[0,i,:]
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))
+
+if args.latint:
+    avg.fill(0) ##clean avg array
+    latent = torch.squeeze(latent, 0)
+    latent_max = torch.amax(latent, 0)  
+    latent_min = torch.amin(latent, 0)
+    for j in range(latent.shape[1]):
+        latent_int_max = latent.clone() 
+        #latent_int_max[:,j] += 1
+        latent_int_max[:,j] = latent_min[j]
+        out_int = model.decoder(latent_int_max)
+        diff_int = torch.abs(out_int - x_out[0,:,:])
+        avg[:,:,j][mask] = np.mean(diff_int.detach().numpy(), 0)
+    if args.save:
+        for j in range(latent.shape[-1]):
+            img = Image.fromarray(avg[:,:,j])
+            svpth = os.path.join(savedir, f'{chosen}_latint_max_avg_latent{j}_lag={model.lag}.tiff')
+            img.save(svpth)
+    else:
+        plot_output(avg)
+    
+    
