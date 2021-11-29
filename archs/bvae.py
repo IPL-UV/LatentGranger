@@ -78,7 +78,6 @@ class bvae(pl.LightningModule):
 
     def encoder(self, x):
 
-
         # Encoder
         for i in np.arange(len(self.encoder_out)):
             x = self.encoder_layers[i](x)
@@ -102,9 +101,8 @@ class bvae(pl.LightningModule):
 
     def forward(self, x):
 
-        # Reshape to (b_s*tpb, ...)
-        x_shape_or = np.shape(x)[2:]
-        x = torch.reshape(x, (self.tpb,) + x_shape_or)
+        # Reshape to (tpb, ...)
+        x = torch.squeeze(x, dim = 0)
 
         # Define forward pass
 
@@ -115,12 +113,12 @@ class bvae(pl.LightningModule):
 
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
-        x_latent = torch.reshape(x, (1, self.tpb, -1))
+        x_latent = torch.reshape(x, (1, ) + x.shape)
 
         
         x = self.decoder(x) 
         # Reshape to (b_s, tpb, ...)
-        x = torch.reshape(x, (1, self.tpb,) + x_shape_or)
+        x = torch.reshape(x, (1,) + x.shape)
 
         return x, x_latent, mu, sigma
 
