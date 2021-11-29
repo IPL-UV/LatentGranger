@@ -8,5 +8,5 @@ nsamples_train: 600
 nsamples_val: 600
 nsamples_test: 200
 mask: './databases/data/africa_LC.tif'
-tpb: 400
+tpb: 200
 root_ENSO: './databases/data/inino34_daily.dat'
