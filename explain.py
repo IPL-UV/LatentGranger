@@ -260,7 +260,7 @@ if args.latint:
     for j in range(latent.shape[1]):
         latent_int_max = latent.clone() 
         #latent_int_max[:,j] += 1
-        latent_int_max[:,j] = latent_min[j]
+        latent_int_max[:,j] = latent_max[j]
         out_int = model.decoder(latent_int_max)
         diff_int = torch.abs(out_int - x_out[0,:,:])
         avg[:,:,j][mask] = np.mean(diff_int.detach().numpy(), 0)
