@@ -173,7 +173,7 @@ else:
     plot_latent(latent[0,:,:], target)  
 
 
-### compute gradient and plot or save 
+### prepare arrays 
 
 if hasattr(data, 'mask'): 
    mask = data.mask 
@@ -254,21 +254,30 @@ if args.nig:
 
 if args.latint:
     avg.fill(0) ##clean avg array
+    avg_max = avg.copy()
+    avg_min = avg.copy()
     latent = torch.squeeze(latent, 0)
     latent_max = torch.amax(latent, 0)  
     latent_min = torch.amin(latent, 0)
     for j in range(latent.shape[1]):
         latent_int_max = latent.clone() 
-        #latent_int_max[:,j] += 1
         latent_int_max[:,j] = latent_max[j]
-        out_int = model.decoder(latent_int_max)
-        diff_int = torch.abs(out_int - x_out[0,:,:])
-        avg[:,:,j][mask] = np.mean(diff_int.detach().numpy(), 0)
+        latent_int_min = latent.clone() 
+        latent_int_min[:,j] = latent_min[j]
+        out_int_max = model.decoder(latent_int_max)
+        out_int_min = model.decoder(latent_int_min)
+        diff_int_max = torch.abs(out_int_max - x_out[0,:,:])
+        diff_int_min = torch.abs(out_int_min - x_out[0,:,:])
+        avg_max[:,:,j][mask] = np.mean(diff_int_max.detach().numpy(), 0)
+        avg_min[:,:,j][mask] = np.mean(diff_int_min.detach().numpy(), 0)
     if args.save:
         for j in range(latent.shape[-1]):
-            img = Image.fromarray(avg[:,:,j])
+            img_max = Image.fromarray(avg_max[:,:,j])
+            img_min = Image.fromarray(avg_min[:,:,j])
             svpth = os.path.join(savedir, f'{chosen}_latint_max_avg_latent{j}_lag={model.lag}.tiff')
-            img.save(svpth)
+            img_max.save(svpth)
+            svpth = os.path.join(savedir, f'{chosen}_latint_min_avg_latent{j}_lag={model.lag}.tiff')
+            img_min.save(svpth)
     else:
         plot_output(avg)
     

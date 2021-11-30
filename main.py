@@ -58,10 +58,10 @@ def main(args):
 
     experiment_id = str(datetime.now())
     log_dir = os.path.join(args.dir, 'logs', args.data, args.arch,
-                           git_commit_sha, experiment_id)
+                           experiment_id)
     checkpoints_dir = os.path.join(args.dir, 'checkpoints',
                                    args.data, args.arch,
-                                   git_commit_sha, experiment_id)
+                                   experiment_id)
 
     os.makedirs(args.dir, exist_ok=True)
     pathlogfile = os.path.join(args.dir, 'log.txt')
@@ -75,7 +75,7 @@ def main(args):
         input_size = tuple(data_config['input_size'])
 
     model_class = getattr(archs, arch_config['class'])
-    pl.utilities.seed.seed_everything(seed=0)
+    #pl.utilities.seed.seed_everything(seed=0)
     model = model_class(arch_config, input_size, data_config['tpb'],
                         args.maxlag, args.gamma)
     print(model)
