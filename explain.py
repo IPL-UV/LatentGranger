@@ -48,8 +48,6 @@ parser.add_argument('--dir', default='experiment', type=str,
                   help='path to experiment folder')
 parser.add_argument('-c','--checkpoint', default='last.ckpt', type=str,
                   help='checkpoint (default: last)')
-parser.add_argument('--commit', default='', type=str,
-                  help='commit 7 character (default:)')
 parser.add_argument('-t','--timestamp', default='', type=str,
                   help='timestampt (default:)')
 parser.add_argument('--train', action = 'store_true',
@@ -72,15 +70,9 @@ parser.add_argument('--idx', type=int, default = 0,
 
 args = parser.parse_args()
 
-if args.commit == '':
-   repo = git.Repo(search_parent_directories=True)
-   git_commit_sha = repo.head.object.hexsha[:7]
-else:
-   git_commit_sha = args.commit
 
-
-log_root =  os.path.join(args.dir, 'logs', args.data, args.arch, git_commit_sha) 
-check_root =  os.path.join(args.dir, 'checkpoints', args.data, args.arch, git_commit_sha) 
+log_root =  os.path.join(args.dir, 'logs', args.data, args.arch) 
+check_root =  os.path.join(args.dir, 'checkpoints', args.data, args.arch) 
 
 print(check_root)
 allchckpts = natsorted(
@@ -266,10 +258,10 @@ if args.latint:
         latent_int_min[:,j] = latent_min[j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
-        diff_int_max = torch.abs(out_int_max - x_out[0,:,:])
-        diff_int_min = torch.abs(out_int_min - x_out[0,:,:])
-        avg_max[:,:,j][mask] = np.mean(diff_int_max.detach().numpy(), 0)
-        avg_min[:,:,j][mask] = np.mean(diff_int_min.detach().numpy(), 0)
+        diff_int_max = out_int_max - x_out[0,:,:]
+        diff_int_min = out_int_min - x_out[0,:,:]
+        avg_max[:,:,j][mask] = np.abs(np.mean(diff_int_max.detach().numpy(), 0))
+        avg_min[:,:,j][mask] = np.abs(np.mean(diff_int_min.detach().numpy(), 0))
     if args.save:
         for j in range(latent.shape[-1]):
             img_max = Image.fromarray(avg_max[:,:,j])
@@ -279,6 +271,5 @@ if args.latint:
             svpth = os.path.join(savedir, f'{chosen}_latint_min_avg_latent{j}_lag={model.lag}.tiff')
             img_min.save(svpth)
     else:
-        plot_output(avg)
-    
-    
+        plot_output(avg_max)
+        plot_output(avg_min)
