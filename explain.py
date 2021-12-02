@@ -162,7 +162,7 @@ if args.save:
     svpth = os.path.join(savedir, f'{chosen}_latents.tiff')
     plot_latent(latent[0,:,:], target, svpth)  
 else:
-    plot_latent(latent[0,:,:], target)  
+    plot_latent(latent[0,:,0:1], target)  
 
 
 ### prepare arrays 
@@ -260,10 +260,10 @@ if args.latint:
         latent_int_min[:,j] -= 0.1 
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
-        diff_int_max = out_int_max - x_out[0,:,:]
-        diff_int_min = out_int_min - x_out[0,:,:]
-        avg_max[:,:,j][mask] = np.abs(np.mean(diff_int_max.detach().numpy(), 0))
-        avg_min[:,:,j][mask] = np.abs(np.mean(diff_int_min.detach().numpy(), 0))
+        diff_int_max = out_int_max - x_out[0,:,:] #/ (x_out[0,:,:]))
+        diff_int_min = out_int_min - x_out[0,:,:] #/ (x_out[0,:,:]))
+        avg_max[:,:,j][mask] = np.mean(diff_int_max.detach().numpy(), 0)
+        avg_min[:,:,j][mask] = np.mean(diff_int_min.detach().numpy(), 0)
     if args.save:
         for j in range(latent.shape[-1]):
             img_max = Image.fromarray(avg_max[:,:,j])
