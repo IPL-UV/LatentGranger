@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from losses import granger_loss
+from losses import granger_simple_loss
 
 
 class bvae(pl.LightningModule):
@@ -139,7 +139,7 @@ class bvae(pl.LightningModule):
         # Granger loss
         g_loss = 0
         for idx in range(self.causal_latents):
-            g_loss += granger_loss(x_latent, target,
+            g_loss += granger_simple_loss(x_latent, target,
                                    maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
@@ -169,7 +169,7 @@ class bvae(pl.LightningModule):
         # Granger loss
         g_loss = 0
         for idx in range(self.causal_latents):
-            g_loss += granger_loss(x_latent, target,
+            g_loss += granger_simple_loss(x_latent, target,
                                    maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
@@ -197,7 +197,7 @@ class bvae(pl.LightningModule):
 
         g_loss = 0
         for idx in range(self.causal_latents):
-            g_loss += granger_loss(x_latent, target,
+            g_loss += granger_simple_loss(x_latent, target,
                                    maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
