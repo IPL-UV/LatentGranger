@@ -8,6 +8,6 @@ train: [2013, 2014, 2015, 2016, 2017]
 val:   [2007, 2008, 2009, 2010, 2011]
 test:  [2013, 2014, 2015, 2016, 2017]
 batch_size: 1
-tpb: 200
+tpb: 230
 mask: './databases/data/LC_lowres.tif'
 root_ENSO: './databases/data/inino34_daily.dat'
