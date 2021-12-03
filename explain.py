@@ -251,13 +251,14 @@ if args.latint:
     latent = torch.squeeze(latent, 0)
     latent_max = torch.amax(latent, 0)  
     latent_min = torch.amin(latent, 0)
+    std, m = torch.std_mean(latent, 0)
     for j in range(latent.shape[1]):
         latent_int_max = latent.clone() 
         #latent_int_max[:,j] = latent_max[j]
-        latent_int_max[:,j] += 0.1
+        latent_int_max[:,j] += 0.1 * std[j]
         latent_int_min = latent.clone() 
         #latent_int_min[:,j] = latent_min[j]
-        latent_int_min[:,j] -= 0.1 
+        latent_int_min[:,j] -= 0.1 * std[j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
         diff_int_max = out_int_max - x_out[0,:,:] #/ (x_out[0,:,:]))
