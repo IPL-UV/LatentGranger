@@ -25,7 +25,7 @@ def plot_output(x):
 
 def plot_latent(h, target, path=None):
     target = np.squeeze(target.detach().numpy())
-    target = (target - np.mean(target)) / np.std(target)
+    #target = (target - np.mean(target)) / np.std(target)
     plt.plot(target, color = 'red', label = 'target')
     for i in range(h.shape[1]):
         h0 = np.squeeze(h[:,i].detach().numpy())

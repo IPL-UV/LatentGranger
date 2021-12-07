@@ -22,8 +22,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 # Model
 import archs
 import loaders
+import torch
 
-
+torch.autograd.set_detect_anomaly(True)
 def main(args):
 
     # Load YAML config files  into a dict variable

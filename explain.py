@@ -26,7 +26,7 @@ import loaders
 # Model
 import archs 
 from losses import lag_cor  
-from losses import granger_loss 
+from losses import granger_loss, granger_simple_loss 
 from utils import *
 
 # PyTorch Captum for XAI
@@ -223,9 +223,11 @@ if args.extract:
 
 if args.nig:
 
-    baseline = np.zeros(x.shape, dtype="float32")
+    #baseline = np.zeros(x.shape, dtype="float32")
     
-    baseline = torch.Tensor(baseline)
+    #baseline = torch.Tensor(baseline)
+
+    baseline = torch.mean(x[0,:,:], 0).expand(x.shape)
     nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = True)
 
     for j in range(latent.shape[-1]):
@@ -240,7 +242,7 @@ if args.nig:
         os.makedirs(os.path.join(savedir, f'nig{j}'), exist_ok = True)
         for i in range(attr_maps.shape[1]):
             imgarray = np.zeros(mask.shape)
-            imgarray[mask] = np.abs(attr_maps.detach().numpy()[0,i,:])
+            imgarray[mask] = attr_maps.detach().numpy()[0,i,:]
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))
 
@@ -255,10 +257,10 @@ if args.latint:
     for j in range(latent.shape[1]):
         latent_int_max = latent.clone() 
         #latent_int_max[:,j] = latent_max[j]
-        latent_int_max[:,j] += 0.1 * std[j]
+        latent_int_max[:,j] += 0.5 * std[j]
         latent_int_min = latent.clone() 
         #latent_int_min[:,j] = latent_min[j]
-        latent_int_min[:,j] -= 0.1 * std[j]
+        latent_int_min[:,j] -= 0.5 * std[j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
         diff_int_max = out_int_max - x_out[0,:,:] #/ (x_out[0,:,:]))

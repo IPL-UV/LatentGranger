@@ -39,6 +39,12 @@ def cor(x, y, lag):
     return corr.mean()
 
 
+def cor_loss(h, target, maxlag=1, idx=1):
+    loss = torch.zeros(())
+    for lag in range(maxlag):
+        loss = loss - lag_cor(h[:,:,idx], target, lag + 1)
+    return loss / maxlag 
+
 # h.shape = (batch_size, tbp, nlatents)
 # target.shape = (batch_size, tbp)
 def granger_loss(h, target, maxlag=1, idx=0):
@@ -58,10 +64,7 @@ def granger_loss(h, target, maxlag=1, idx=0):
     PP1 = torch.linalg.pinv(xx)
     yypred1 = torch.mv(xx, torch.mv(PP1, yy))
     loss_with = loss(yy, yypred1)
-#   return loss_with / (loss_base - loss_with)
-#   return torch.log(loss_with) - torch.log(loss_base)
     return torch.log(loss_base + loss_with) - torch.log(loss_base)
-#   return loss_with / loss_base
 
 
 # h.shape = (batch_size, tbp, nlatents)
@@ -81,10 +84,7 @@ def granger_simple_loss(h, target, maxlag=1, idx=0):
     PP1 = torch.linalg.pinv(xx)
     yypred1 = torch.mv(xx, torch.mv(PP1, yy))
     loss_with = loss(yy, yypred1)
-#   return loss_with / (loss_base - loss_with)
-#   return torch.log(loss_with) - torch.log(loss_base)
     return torch.log(loss_base + loss_with) - torch.log(loss_base)
-#   return loss_with / loss_base
 
 
 # h.shape = (batch_size, tbp, nlatents)

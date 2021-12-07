@@ -1,12 +1,13 @@
 class: 'NDVI' 
 seed_idx: 0
-input_size: [150, 150]
-flat_input_size: 11719 
-root: './databases/data/africa_ndvi_norm/'
+input_size: [50, 50]
+flat_input_size: 1305 
+root: './databases/data/africa_ndvi_lowres_ns/'
 template: 'ndvi_TMSTMP.nc'
 train: [2007, 2008, 2009, 2010, 2011, 2012]
 val:   [2013, 2014, 2015, 2016, 2017]
 test:  [2013, 2014, 2015, 2016, 2017]
+batch_size: 1
 tpb: 150
-mask: './databases/data/africa_LC.tif'
+mask: './databases/data/africa_LC_lowres.tif'
 root_ENSO: './databases/data/inino34_daily.dat'
