@@ -24,7 +24,7 @@ import archs
 import loaders
 import torch
 
-torch.autograd.set_detect_anomaly(True)
+#torch.autograd.set_detect_anomaly(True)
 def main(args):
 
     # Load YAML config files  into a dict variable
@@ -76,7 +76,11 @@ def main(args):
         input_size = tuple(data_config['input_size'])
 
     model_class = getattr(archs, arch_config['class'])
-    #pl.utilities.seed.seed_everything(seed=0)
+
+    if args.seed >= 0:
+        print(f'seed set to {args.seed}') 
+        pl.utilities.seed.seed_everything(seed=args.seed)
+
     model = model_class(arch_config, input_size, data_config['tpb'],
                         args.maxlag, args.gamma)
     print(model)
@@ -145,5 +149,8 @@ if __name__ == '__main__':
                         help='whether to use early stopping')
     parser.add_argument('--dir', default="experiment",
                         type=str, help='experiemnt directory')
+    parser.add_argument('--seed', default=-1,
+                        type=int, help='seed if >0')
+
     args = parser.parse_args()
     main(args)
