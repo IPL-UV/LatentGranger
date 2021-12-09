@@ -231,6 +231,8 @@ if args.nig:
     nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = True)
 
     for j in range(latent.shape[-1]):
+
+        avg_nig = np.zeros(x.shape[-1], dtype="float32")
         # Baseline for Integrated Gradients
         # Zeros (default)
             
@@ -242,9 +244,15 @@ if args.nig:
         os.makedirs(os.path.join(savedir, f'nig{j}'), exist_ok = True)
         for i in range(attr_maps.shape[1]):
             imgarray = np.zeros(mask.shape)
+            avg_nig += attr_maps.detach().numpy()[0,i,:]
             imgarray[mask] = attr_maps.detach().numpy()[0,i,:]
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))
+        avg_nig = avg_nig / attr_maps.shape[1]  
+        imgarray = np.zeros(mask.shape)
+        imgarray[mask] = avg_nig 
+        img = Image.fromarray(imgarray)
+        img.save(os.path.join(savedir, f'avg_nig_{j}_.tiff'))
 
 if args.latint:
     avg.fill(0) ##clean avg array
@@ -257,10 +265,10 @@ if args.latint:
     for j in range(latent.shape[1]):
         latent_int_max = latent.clone() 
         #latent_int_max[:,j] = latent_max[j]
-        latent_int_max[:,j] += 0.5 * std[j]
+        latent_int_max[:,j] += 1 * std[j]
         latent_int_min = latent.clone() 
         #latent_int_min[:,j] = latent_min[j]
-        latent_int_min[:,j] -= 0.5 * std[j]
+        latent_int_min[:,j] -= 1 * std[j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
         diff_int_max = out_int_max - x_out[0,:,:] #/ (x_out[0,:,:]))

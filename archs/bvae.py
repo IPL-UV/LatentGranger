@@ -150,38 +150,39 @@ class bvae(pl.LightningModule):
         for idx in range(self.causal_latents):
             xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xlat[:,:,:-1]) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat[:,:,:-1],xtar[:,:,:-1]), 1)) 
-            loss0 = F.mse_loss(pred0, xlat[:,:,self.lag:], reduction='sum')   
-            loss1 = F.mse_loss(pred1, xlat[:,:,self.lag:], reduction='sum')   
+            pred0 = self.model0_layers[idx](xlat) 
+            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
+            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
             var_loss += loss0 + loss1
-            #g_loss += torch.log(loss0 + loss1) - torch.log(loss0)
 
+        self.log('forecasting_loss', {"train": var_loss}, on_step=False,
+                 on_epoch=True, logger=True)
+
+
+        #gradient step for forecasting models 
         var_opt.zero_grad()
         self.manual_backward(var_loss, retain_graph=True)
         var_opt.step()
-  
+
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
             xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xlat[:,:,:-1]) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat[:,:,:-1],xtar[:,:,:-1]), 1)) 
-            loss0 = F.mse_loss(pred0, xlat[:,:,self.lag:], reduction='sum')   
-            loss1 = F.mse_loss(pred1, xlat[:,:,self.lag:], reduction='sum')   
-            g_loss += torch.log(loss0 + loss1) - torch.log(loss0)
-
-
-        #for idx in range(self.causal_latents):
-        #    g_loss += self.causal_loss(x_latent, target,
-        #                           maxlag=self.lag, idx=idx)
+            pred0 = self.model0_layers[idx](xlat) 
+            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
+            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
 
 
         loss += self.gamma * g_loss
-        main_opt.zero_grad()
-        self.manual_backward(loss)
-        main_opt.step()
 
+        #main gradient step
+        main_opt.zero_grad()
+        self.manual_backward(loss, retain_graph=False)
+        main_opt.step()
+  
         self.log('loss', {"train": loss}, on_step=False,
                  on_epoch=True, logger=True)
         self.log('mse_loss', {"train": mse_loss}, on_step=False,
@@ -207,18 +208,21 @@ class bvae(pl.LightningModule):
 
         # Granger loss
         g_loss = torch.zeros(())
+        var_loss = torch.zeros(())
         for idx in range(self.causal_latents):
             xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xtar[:,:,:-1]) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat[:,:,:-1],xtar[:,:,:-1]), 1)) 
-            loss0 = F.mse_loss(pred0, xlat[:,:,self.lag:], reduction='sum')   
-            loss1 = F.mse_loss(pred1, xlat[:,:,self.lag:], reduction='sum')   
-            g_loss += torch.log(loss0 + loss1) - torch.log(loss0)
+            pred0 = self.model0_layers[idx](xtar) 
+            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
+            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            var_loss += loss0 + loss1
+            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
 
-        #for idx in range(self.causal_latents):
-        #    g_loss += self.causal_loss(x_latent, target,
-        #                           maxlag=self.lag, idx=idx)
+
+        self.log('forecasting_loss', {"val": var_loss}, on_step=False,
+                 on_epoch=True, logger=True)
+
         loss += self.gamma * g_loss
 
         self.log('loss', {"val": loss}, on_step=False,
@@ -248,15 +252,12 @@ class bvae(pl.LightningModule):
         for idx in range(self.causal_latents):
             xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xtar[:,:,:-1]) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat[:,:,:-1],xtar[:,:,:-1]), 1)) 
-            loss0 = F.mse_loss(pred0, xlat[:,:,self.lag:], reduction='sum')   
-            loss1 = F.mse_loss(pred1, xlat[:,:,self.lag:], reduction='sum')   
-            g_loss += torch.log(loss0 + loss1) - torch.log(loss0)
+            pred0 = self.model0_layers[idx](xtar) 
+            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
+            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
+            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
 
-        #for idx in range(self.causal_latents):
-        #    g_loss += self.causal_loss(x_latent, target,
-        #                           maxlag=self.lag, idx=idx)
         loss += self.gamma * g_loss
 
         self.log('loss', {"test": loss}, on_step=False,
