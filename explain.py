@@ -160,9 +160,9 @@ for j in range(latent.shape[-1]):
 
 if args.save:
     svpth = os.path.join(savedir, f'{chosen}_latents.tiff')
-    plot_latent(latent[0,:,:], target, svpth)  
+    plot_latent(mu[:,:], target, svpth)  
 else:
-    plot_latent(latent[0,:,0:1], target)  
+    plot_latent(mu[:,0:1], target)  
 
 
 ### prepare arrays 
@@ -216,7 +216,7 @@ else:
 
 if args.extract:
     ## save latent
-    np.savetxt(os.path.join(savedir, f'{chosen}_latents.csv'), latent.detach().numpy()[0,:,:])
+    np.savetxt(os.path.join(savedir, f'{chosen}_latents.csv'), mu.detach().numpy())
     ## save target
     np.savetxt(os.path.join(savedir, f'{chosen}_target.csv'), target.detach().numpy()[0,:]) 
 
@@ -258,17 +258,16 @@ if args.latint:
     avg.fill(0) ##clean avg array
     avg_max = avg.copy()
     avg_min = avg.copy()
-    latent = torch.squeeze(latent, 0)
-    latent_max = torch.amax(latent, 0)  
-    latent_min = torch.amin(latent, 0)
-    std, m = torch.std_mean(latent, 0)
-    for j in range(latent.shape[1]):
-        latent_int_max = latent.clone() 
+    latent_max = torch.amax(mu, 0)  
+    latent_min = torch.amin(mu, 0)
+    std, m = torch.std_mean(mu, 0)
+    for j in range(mu.shape[1]):
+        latent_int_max = mu.clone() 
         #latent_int_max[:,j] = latent_max[j]
-        latent_int_max[:,j] += 1 * std[j]
-        latent_int_min = latent.clone() 
+        latent_int_max[:,j] += 1 * sigma[:,j]
+        latent_int_min = mu.clone() 
         #latent_int_min[:,j] = latent_min[j]
-        latent_int_min[:,j] -= 1 * std[j]
+        latent_int_min[:,j] -= 1 * sigma[:,j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
         diff_int_max = out_int_max - x_out[0,:,:] #/ (x_out[0,:,:]))
