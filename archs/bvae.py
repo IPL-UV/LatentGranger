@@ -130,7 +130,7 @@ class bvae(pl.LightningModule):
 
         return x, x_latent, mu, sigma
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx):
         x, target = batch
 
         var_opt, main_opt = self.optimizers() 
@@ -148,7 +148,8 @@ class bvae(pl.LightningModule):
         # Granger loss
         var_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xlat) 
             pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
@@ -167,7 +168,8 @@ class bvae(pl.LightningModule):
 
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xlat) 
             pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
@@ -210,7 +212,8 @@ class bvae(pl.LightningModule):
         g_loss = torch.zeros(())
         var_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xtar) 
             pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
@@ -250,7 +253,8 @@ class bvae(pl.LightningModule):
         # Granger loss
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
+            xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xtar) 
             pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
@@ -278,7 +282,7 @@ class bvae(pl.LightningModule):
         #optimizer = torch.optim.Adam(trainable_params,
         #                             lr=lr, weight_decay=weight_decay)
         var_param = list(self.model0_layers.parameters()) +  list(self.model1_layers.parameters()) 
-        var_opt = torch.optim.Adam(var_param, lr=lr, weight_decay=weight_decay)
+        var_opt = torch.optim.Adam(var_param, lr=lr / 10, weight_decay=weight_decay)
         main_param = list(self.encoder_layers.parameters()) + list(self.decoder_layers.parameters())
         main_param += list(self.mu_layer.parameters()) + list(self.sigma_layer.parameters()) 
         main_param += list(self.output_layer.parameters()) 

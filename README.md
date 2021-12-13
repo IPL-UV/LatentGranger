@@ -27,14 +27,14 @@ libraries is  described in `environment.yaml`.
 
 ```
 ## this will train a simple VAE with fully conected layers over the Toy dataset 
-## with gamma = 0.01 nad max lag = 5
-python3 main.py -d toy --arch vae -g 0.01 --maxlag 5  
+## with gamma = 100 nad max lag = 5
+python3 main.py -d toy --arch vae -g 100 --maxlag 5  
 ```
 
 ### XAI
 
-The following command will extract the latent representation, average absolute gradients and 
-neural integrated gradients. The output files will be available in the `viz/` folder. 
+The following command will extract the latent representation, average absolute gradients, 
+neural integrated gradients and latent interventions. The output files will be available in the `viz/` folder. 
 By default the last checkpoint for the last trained model is used but a specific trained model can 
 be specified with `-t` (timepoint) and `-c` (checkpoint name).  
 

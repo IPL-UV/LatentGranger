@@ -244,8 +244,8 @@ if args.nig:
         os.makedirs(os.path.join(savedir, f'nig{j}'), exist_ok = True)
         for i in range(attr_maps.shape[1]):
             imgarray = np.zeros(mask.shape)
-            avg_nig += attr_maps.detach().numpy()[0,i,:]
-            imgarray[mask] = attr_maps.detach().numpy()[0,i,:]
+            avg_nig += np.abs(attr_maps.detach().numpy()[0,i,:])
+            imgarray[mask] = np.abs(attr_maps.detach().numpy()[0,i,:])
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))
         avg_nig = avg_nig / attr_maps.shape[1]  
