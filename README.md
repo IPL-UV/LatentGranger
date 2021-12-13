@@ -13,20 +13,26 @@ libraries is  described in `environment.yaml`.
 
 ## data
 
+The toy dataset can be generated with 
+
+```
+Rscript generate_toy.R 
+```
+
 ## architectures
 
 ### beta vae with fully connected
 
 ### beta vae with convolutional layers
 
+TO FIX
+
 ## usage 
-
-
 
 ### train the autoencoder 
 
 ```
-## this will train a simple VAE with fully conected layers over the Toy dataset 
+## this will train a simple (Granger)-VAE with fully conected layers over the Toy dataset 
 ## with gamma = 100 nad max lag = 5
 python3 main.py -d toy --arch vae -g 100 --maxlag 5  
 ```
