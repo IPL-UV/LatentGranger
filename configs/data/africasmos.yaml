@@ -3,9 +3,9 @@ seed_idx: 0
 input_size: [360, 260]
 flat_input_size: 45068 
 root: './databases/data/africasmos/'
-nsamples_train: 300
-nsamples_val: 150
+nsamples_train: 250
+nsamples_val: 200
 nsamples_test: 0
-tpb: 150
+tpb: 100
 target: './databases/data/ENSO4_2010to2017_5D.nc'
 mask: './databases/data/africasmos_mask.nc'

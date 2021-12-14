@@ -71,7 +71,7 @@ class smos(torch.utils.data.Dataset):
         # ENSO
         target = torch.Tensor(self.target)
 
-        # NDVI
+        #SMOS
         img_paths = self.paths
         vals = np.zeros((len(img_paths),) + self.input_size + (1,), dtype="float32")
         for j, path in enumerate(img_paths):
