@@ -82,7 +82,7 @@ class smos(torch.utils.data.Dataset):
 
         # flatten if processing_mode is flat
         if self.processing_mode == 'flat':
-            vals = np.reshape(ndvi, (len(img_paths), -1))
+            vals = np.reshape(vals, (len(img_paths), -1))
             vals = vals[:, np.ndarray.flatten(self.mask)]
 
         vals = torch.Tensor(vals)
