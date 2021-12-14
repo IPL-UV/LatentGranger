@@ -65,7 +65,29 @@ class smos(torch.utils.data.Dataset):
         mask = nc.Dataset(self.config['mask'])
         self.mask = np.array(mask['mask']) > 0
 
+    def getAll(self):
+        # Features
+        x = ()
+        # ENSO
+        target = torch.Tensor(self.target)
 
+        # NDVI
+        img_paths = self.paths
+        vals = np.zeros((len(img_paths),) + self.input_size + (1,), dtype="float32")
+        for j, path in enumerate(img_paths):
+            data = nc.Dataset(path)
+            x = np.array(data['smos'])
+            x[x == data['smos']._FillValue] = 0.0  # set NA to 0.0
+            vals[j, :, :, 0] = x
+
+        # flatten if processing_mode is flat
+        if self.processing_mode == 'flat':
+            vals = np.reshape(ndvi, (len(img_paths), -1))
+            vals = vals[:, np.ndarray.flatten(self.mask)]
+
+        vals = torch.Tensor(vals)
+        return vals, target
+ 
 
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""
