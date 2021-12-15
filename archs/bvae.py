@@ -82,7 +82,6 @@ class bvae(pl.LightningModule):
         # Output
         self.output_layer = nn.Linear(in_, self.input_size)
 
-        self.drop_layer = nn.Dropout(p=0.4)
 
     def encoder(self, x):
 
@@ -141,14 +140,13 @@ class bvae(pl.LightningModule):
         loss = torch.tensor([0.0])
 
         kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
-        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum')
-        mse_loss = reconstruction_loss / torch.numel(x)
+        reconstruction_loss = F.mse_loss(x_out, x, reduction='mean')
+        mse_loss = reconstruction_loss #/ torch.numel(x)
         loss += reconstruction_loss + self.beta * kl_loss
 
         # Granger loss
         var_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xlat) 
@@ -168,7 +166,6 @@ class bvae(pl.LightningModule):
 
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xlat) 
@@ -194,7 +191,6 @@ class bvae(pl.LightningModule):
         self.log('granger_loss', {"train": g_loss}, on_step=False,
                  on_epoch=True, logger=True)
 
-        #return loss
 
     def validation_step(self, batch, idx):
         x, target = batch
@@ -204,15 +200,14 @@ class bvae(pl.LightningModule):
         loss = torch.tensor([0.0])
 
         kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1 / 2).sum()
-        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum')
-        mse_loss = reconstruction_loss / torch.numel(x)
+        reconstruction_loss = F.mse_loss(x_out, x, reduction='mean')
+        mse_loss = reconstruction_loss #/ torch.numel(x)
         loss += reconstruction_loss + self.beta * kl_loss
 
         # Granger loss
         g_loss = torch.zeros(())
         var_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xtar) 
@@ -246,14 +241,13 @@ class bvae(pl.LightningModule):
         loss = torch.tensor([0.0])
 
         kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1/2).sum()
-        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum')
-        mse_loss = reconstruction_loss / torch.numel(x)
+        reconstruction_loss = F.mse_loss(x_out, x, reduction='mean')
+        mse_loss = reconstruction_loss #/ torch.numel(x)
         loss += reconstruction_loss + self.beta * kl_loss
 
         # Granger loss
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
-            #xlat = x_latent[0,:, idx].reshape((1,1,-1)) 
             xlat = mu[:, idx].reshape((1,1,-1)) 
             xtar = target[0,:].reshape((1,1,-1)) 
             pred0 = self.model0_layers[idx](xtar) 
@@ -277,10 +271,7 @@ class bvae(pl.LightningModule):
         # read parameters
         lr = self.config['optimizer']['lr']
         weight_decay = self.config['optimizer']['weight_decay']
-        # build optimizer
-        #trainable_params = filter(lambda p: p.requires_grad, self.parameters())
-        #optimizer = torch.optim.Adam(trainable_params,
-        #                             lr=lr, weight_decay=weight_decay)
+        # build optimizers
         var_param = list(self.model0_layers.parameters()) +  list(self.model1_layers.parameters()) 
         var_opt = torch.optim.Adam(var_param, lr=lr / 10, weight_decay=weight_decay)
         main_param = list(self.encoder_layers.parameters()) + list(self.decoder_layers.parameters())

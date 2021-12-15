@@ -264,14 +264,14 @@ if args.latint:
     for j in range(mu.shape[1]):
         latent_int_max = mu.clone() 
         #latent_int_max[:,j] = latent_max[j]
-        latent_int_max[:,j] += 1 * sigma[:,j]
+        latent_int_max[:,j] += 3 * sigma[:,j]
         latent_int_min = mu.clone() 
         #latent_int_min[:,j] = latent_min[j]
-        latent_int_min[:,j] -= 1 * sigma[:,j]
+        latent_int_min[:,j] -= 3 * sigma[:,j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
-        diff_int_max = out_int_max - x_out[0,:,:] #/ (x_out[0,:,:]))
-        diff_int_min = out_int_min - x_out[0,:,:] #/ (x_out[0,:,:]))
+        diff_int_max = (out_int_max - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_min = (out_int_min - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
         avg_max[:,:,j][mask] = np.mean(diff_int_max.detach().numpy(), 0)
         avg_min[:,:,j][mask] = np.mean(diff_int_min.detach().numpy(), 0)
     if args.save:

@@ -76,6 +76,30 @@ class precip(torch.utils.data.Dataset):
         self.paths = self.paths[first:last]
         self.target = self.target[first:last]
 
+
+    def getAll(self):
+        """Returns tuple (input, target) correspond to batch #idx."""
+
+        # ENSO
+        target = torch.Tensor(self.target)
+
+        # precip
+        img_paths = self.paths
+        vals = np.zeros((len(img_paths),) + self.input_size + (1,), dtype="float32")
+        for j, path in enumerate(img_paths):
+            data = nc.Dataset(path)
+            x = np.array(data['precip'])
+            x[x == data['precip']._FillValue] = 0  # set NA to 0
+            vals[j, :, :, 0] = x
+
+        if self.processing_mode == 'flat':
+            # flatten if autoencoder is dense
+            vals = np.reshape(vals, (len(img_paths), -1))
+            vals = vals[:, np.ndarray.flatten(self.mask)]
+
+        return torch.Tensor(vals), target
+
+
     def __getitem__(self, index):
         """Returns tuple (input, target) correspond to batch #idx."""
 
