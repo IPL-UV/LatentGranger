@@ -263,7 +263,7 @@ if args.latint:
     latent_max = torch.amax(mu, 0)  
     latent_min = torch.amin(mu, 0)
     std, m = torch.std_mean(mu, 0)
-    base = model.decoder(torch.zeros(mu.shape))
+    base = model.decoder(mu)
     for j in range(mu.shape[1]):
         latent_int_max = mu.clone() 
         latent_int_max[:,j] = latent_max[j]
@@ -277,10 +277,10 @@ if args.latint:
         out_int_min = model.decoder(latent_int_min)
         out_int_plus = model.decoder(latent_int_plus)
         out_int_minus = model.decoder(latent_int_minus)
-        diff_int_max = (out_int_max - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
-        diff_int_min = (out_int_min - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
-        diff_int_plus = (out_int_plus - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
-        diff_int_minus = (out_int_minus - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_max = (out_int_max - base) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_min = (out_int_min - base) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_plus = (out_int_plus - base) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_minus = (out_int_minus - base) #/ (x_out[0,:,:] + 0.0001)
         avg_max[:,:,j][mask] = np.mean(diff_int_max.detach().numpy(), 0)
         avg_min[:,:,j][mask] = np.mean(diff_int_min.detach().numpy(), 0)
         avg_plus[:,:,j][mask] = np.mean(diff_int_plus.detach().numpy(), 0)
