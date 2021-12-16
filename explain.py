@@ -258,6 +258,8 @@ if args.latint:
     avg.fill(0) ##clean avg array
     avg_max = avg.copy()
     avg_min = avg.copy()
+    avg_plus = avg.copy()
+    avg_minus = avg.copy()
     latent_max = torch.amax(mu, 0)  
     latent_min = torch.amin(mu, 0)
     std, m = torch.std_mean(mu, 0)
