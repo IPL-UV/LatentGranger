@@ -5,7 +5,7 @@ latent_dim: 10
 causal_latents: 1
 decoder:
     out_features: [64, 128, 256, 512]
-beta: 1
+beta: 10
 processing_mode: 'flat'
 optimizer:
     type: "Adam"
