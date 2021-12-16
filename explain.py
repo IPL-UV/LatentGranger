@@ -261,27 +261,45 @@ if args.latint:
     latent_max = torch.amax(mu, 0)  
     latent_min = torch.amin(mu, 0)
     std, m = torch.std_mean(mu, 0)
+    base = model.decoder(torch.zeros(mu.shape))
     for j in range(mu.shape[1]):
         latent_int_max = mu.clone() 
-        #latent_int_max[:,j] = latent_max[j]
-        latent_int_max[:,j] += 1 * sigma[:,j]
-        latent_int_min = mu.clone() 
-        #latent_int_min[:,j] = latent_min[j]
-        latent_int_min[:,j] -= 1 * sigma[:,j]
+        latent_int_max[:,j] = latent_max[j]
+        latent_int_min = mu.clone()  
+        latent_int_min[:,j] = latent_min[j]
+        laetent_int_plus = mu.clone()
+        latent_int_plus[:,j] += 1
+        laetent_int_minus = mu.clone()
+        latent_int_minus[:,j] -= 1
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
+        out_int_plus = model.decoder(latent_int_plus)
+        out_int_minus = model.decoder(latent_int_minus)
         diff_int_max = (out_int_max - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
         diff_int_min = (out_int_min - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_plus = (out_int_plus - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
+        diff_int_minus = (out_int_minus - x_out[0,:,:]) #/ (x_out[0,:,:] + 0.0001)
         avg_max[:,:,j][mask] = np.mean(diff_int_max.detach().numpy(), 0)
         avg_min[:,:,j][mask] = np.mean(diff_int_min.detach().numpy(), 0)
+        avg_plus[:,:,j][mask] = np.mean(diff_int_plus.detach().numpy(), 0)
+        avg_minus[:,:,j][mask] = np.mean(diff_int_minus.detach().numpy(), 0)
+
     if args.save:
         for j in range(latent.shape[-1]):
             img_max = Image.fromarray(avg_max[:,:,j])
             img_min = Image.fromarray(avg_min[:,:,j])
+            img_plus = Image.fromarray(avg_plus[:,:,j])
+            img_minus = Image.fromarray(avg_minus[:,:,j])
             svpth = os.path.join(savedir, f'{chosen}_latint_max_avg_latent{j}_lag={model.lag}.tiff')
             img_max.save(svpth)
             svpth = os.path.join(savedir, f'{chosen}_latint_min_avg_latent{j}_lag={model.lag}.tiff')
             img_min.save(svpth)
+            svpth = os.path.join(savedir, f'{chosen}_latint_plus_avg_latent{j}_lag={model.lag}.tiff')
+            img_plus.save(svpth)
+            svpth = os.path.join(savedir, f'{chosen}_latint_minus_avg_latent{j}_lag={model.lag}.tiff')
+            img_minus.save(svpth)
     else:
         plot_output(avg_max)
         plot_output(avg_min)
+        plot_output(avg_plus)
+        plot_output(avg_minus)
