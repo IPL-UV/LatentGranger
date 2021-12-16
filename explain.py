@@ -267,10 +267,10 @@ if args.latint:
         latent_int_max[:,j] = latent_max[j]
         latent_int_min = mu.clone()  
         latent_int_min[:,j] = latent_min[j]
-        laetent_int_plus = mu.clone()
-        latent_int_plus[:,j] += 1
-        laetent_int_minus = mu.clone()
-        latent_int_minus[:,j] -= 1
+        latent_int_plus = mu.clone()
+        latent_int_plus[:,j] += 1 * sigma[:,j]
+        latent_int_minus = mu.clone()
+        latent_int_minus[:,j] -= 1 * sigma[:,j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
         out_int_plus = model.decoder(latent_int_plus)
