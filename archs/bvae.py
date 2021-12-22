@@ -158,11 +158,11 @@ class bvae(pl.LightningModule):
         self.log('forecasting_loss', {"train": var_loss}, on_step=False,
                  on_epoch=True, logger=True)
 
-
+        
         #gradient step for forecasting models 
         var_opt.zero_grad()
         self.manual_backward(var_loss, retain_graph=True)
-        var_opt.step()
+        var_opt.step(closure)
 
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
@@ -190,6 +190,7 @@ class bvae(pl.LightningModule):
                  on_epoch=True, logger=True)
         self.log('granger_loss', {"train": g_loss}, on_step=False,
                  on_epoch=True, logger=True)
+        return loss
 
 
     def validation_step(self, batch, idx):
@@ -273,7 +274,7 @@ class bvae(pl.LightningModule):
         weight_decay = self.config['optimizer']['weight_decay']
         # build optimizers
         var_param = list(self.model0_layers.parameters()) +  list(self.model1_layers.parameters()) 
-        var_opt = torch.optim.LBFGS(var_param, lr=lr, line_search_fn='strong_wolfe')
+        var_opt = torch.optim.Adam(var_param, lr=lr)
         main_param = list(self.encoder_layers.parameters()) + list(self.decoder_layers.parameters())
         main_param += list(self.mu_layer.parameters()) + list(self.sigma_layer.parameters()) 
         main_param += list(self.output_layer.parameters()) 
