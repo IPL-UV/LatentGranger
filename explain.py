@@ -46,7 +46,7 @@ parser.add_argument('--loader', default='base', type=str,
                   help='loaders name (default: base) associated to a config file in configs/loaders/')
 parser.add_argument('--dir', default='experiment', type=str,
                   help='path to experiment folder')
-parser.add_argument('-c','--checkpoint', default='last.ckpt', type=str,
+parser.add_argument('-c','--checkpoint', default='best.ckpt', type=str,
                   help='checkpoint (default: last)')
 parser.add_argument('-t','--timestamp', default='', type=str,
                   help='timestampt (default:)')

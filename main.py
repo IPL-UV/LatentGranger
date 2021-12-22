@@ -97,9 +97,9 @@ def main(args):
     # Callbacks
     # Init ModelCheckpoint callback, monitoring 'val_loss'
     checkpoint_callback = ModelCheckpoint(dirpath=checkpoints_dir,
-                                          filename='{epoch}-{val_loss:.5f}',
+                                          filename='best',
                                           mode='min', monitor='val_loss',
-                                          save_last=True, save_top_k=5)
+                                          save_last=False, save_top_k=1)
 
     early_stopping = EarlyStopping(monitor='val_loss',
                                    min_delta=0.0, patience=10,
