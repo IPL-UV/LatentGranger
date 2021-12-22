@@ -162,7 +162,7 @@ class bvae(pl.LightningModule):
         #gradient step for forecasting models 
         var_opt.zero_grad()
         self.manual_backward(var_loss, retain_graph=True)
-        var_opt.step(closure)
+        var_opt.step()
 
         g_loss = torch.zeros(())
         for idx in range(self.causal_latents):
