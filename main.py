@@ -102,7 +102,7 @@ def main(args):
                                           save_last=True, save_top_k=5)
 
     early_stopping = EarlyStopping(monitor='val_loss',
-                                   min_delta=0.0, patience=5,
+                                   min_delta=0.0, patience=10,
                                    verbose=False, mode='min', strict=True)
 
     callbacks = [checkpoint_callback]
