@@ -9,5 +9,5 @@ beta: 10
 processing_mode: 'flat'
 optimizer:
     type: "Adam"
-    lr: 0.001
+    lr: 0.01
     weight_decay: 0
