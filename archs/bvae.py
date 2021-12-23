@@ -274,7 +274,7 @@ class bvae(pl.LightningModule):
         weight_decay = self.config['optimizer']['weight_decay']
         # build optimizers
         var_param = list(self.model0_layers.parameters()) +  list(self.model1_layers.parameters()) 
-        var_opt = torch.optim.Adam(var_param, lr=lr)
+        var_opt = torch.optim.Adam(var_param, lr=lr, weight_decay=lr)
         main_param = list(self.encoder_layers.parameters()) + list(self.decoder_layers.parameters())
         main_param += list(self.mu_layer.parameters()) + list(self.sigma_layer.parameters()) 
         main_param += list(self.output_layer.parameters()) 
