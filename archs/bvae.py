@@ -81,6 +81,7 @@ class bvae(pl.LightningModule):
 
         # Output
         self.output_layer = nn.Linear(in_, self.input_size)
+        self.NC = self.input_size * self.tpb 
 
 
     def encoder(self, x):
@@ -129,6 +130,33 @@ class bvae(pl.LightningModule):
 
         return x, x_latent, mu, sigma
 
+
+    def elbo(self, x, x_out, mu, sigma):
+        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum() / self.NC 
+        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum') / self.NC
+        mse_loss = reconstruction_loss #/ torch.numel(x)
+        loss = reconstruction_loss + self.beta * kl_loss
+        return loss, reconstruction_loss, kl_loss
+
+
+    def granger_loss(self, mu, target):
+        g_loss = torch.zeros(())
+        var_loss = torch.zeros(())
+        for idx in range(self.causal_latents):
+            xlat = mu[:, idx].reshape((1,1,-1)) 
+            xtar = target[0,:].reshape((1,1,-1)) 
+            pred0 = self.model0_layers[idx](xlat) 
+            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
+            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:],
+                               reduction='mean')   
+            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:],
+                               reduction='mean')   
+            var_loss += loss0 + loss1
+            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
+
+        return g_loss, var_loss
+
+
     def training_step(self, batch, batch_idx):
         x, target = batch
 
@@ -136,45 +164,21 @@ class bvae(pl.LightningModule):
         # Define training step
         x_out, x_latent, mu, sigma = self(x)
 
-        # Compute loss
-        loss = torch.tensor([0.0])
+        # Compute beta-elbo loss
+        loss, mse_loss, kl_loss = self.elbo(x, x_out, mu, sigma)
 
-        kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
-        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum')
-        mse_loss = reconstruction_loss / torch.numel(x)
-        loss += reconstruction_loss + self.beta * kl_loss
-
-        # Granger loss
-        var_loss = torch.zeros(())
-        for idx in range(self.causal_latents):
-            xlat = mu[:, idx].reshape((1,1,-1)) 
-            xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xlat) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
-            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            var_loss += loss0 + loss1
-
+        # forecasting loss
+        g_loss, var_loss = self.granger_loss(mu, target)
         self.log('forecasting_loss', {"train": var_loss}, on_step=False,
                  on_epoch=True, logger=True)
 
-        
         #gradient step for forecasting models 
         var_opt.zero_grad()
         self.manual_backward(var_loss, retain_graph=True)
         var_opt.step()
 
-        g_loss = torch.zeros(())
-        for idx in range(self.causal_latents):
-            xlat = mu[:, idx].reshape((1,1,-1)) 
-            xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xlat) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
-            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
-
-
+        #granger loss
+        g_loss, var_loss = self.granger_loss(mu, target)
         loss += self.gamma * g_loss
 
         #main gradient step
@@ -197,27 +201,12 @@ class bvae(pl.LightningModule):
         x, target = batch
         # Define training step
         x_out, x_latent, mu, sigma = self(x)
-        # Compute loss
-        loss = torch.tensor([0.0])
 
-        kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1 / 2).sum()
-        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum')
-        mse_loss = reconstruction_loss / torch.numel(x)
-        loss += reconstruction_loss + self.beta * kl_loss
+        # Compute loss
+        loss, mse_loss, kl_loss = self.elbo(x, x_out, mu, sigma)
 
         # Granger loss
-        g_loss = torch.zeros(())
-        var_loss = torch.zeros(())
-        for idx in range(self.causal_latents):
-            xlat = mu[:, idx].reshape((1,1,-1)) 
-            xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xtar) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
-            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            var_loss += loss0 + loss1
-            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
-
+        g_loss, var_loss = self.granger_loss(mu, target)
 
         self.log('forecasting_loss', {"val": var_loss}, on_step=False,
                  on_epoch=True, logger=True)
@@ -233,6 +222,14 @@ class bvae(pl.LightningModule):
         self.log('granger_loss', {"val": g_loss}, on_step=False,
                  on_epoch=True, logger=True)
         self.log('val_loss', loss)
+        self.log('forecasting_loss_val', var_loss)
+        #return var_loss
+
+    #def validation_epoch_end(self, validation_step_outputs):
+    #    var_loss = torch.stack(validation_step_outputs).mean()
+    #    schd = self.lr_schedulers()
+    #    schd.step(var_loss) 
+
 
     def test_step(self, batch, idx):
         x, target = batch
@@ -241,22 +238,13 @@ class bvae(pl.LightningModule):
         # Compute loss
         loss = torch.tensor([0.0])
 
-        kl_loss = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1/2).sum()
-        reconstruction_loss = F.mse_loss(x_out, x, reduction='sum')
-        mse_loss = reconstruction_loss / torch.numel(x)
-        loss += reconstruction_loss + self.beta * kl_loss
+        # Compute loss
+        loss, mse_loss, kl_loss = self.elbo(x, x_out, mu, sigma)
 
         # Granger loss
-        g_loss = torch.zeros(())
-        for idx in range(self.causal_latents):
-            xlat = mu[:, idx].reshape((1,1,-1)) 
-            xtar = target[0,:].reshape((1,1,-1)) 
-            pred0 = self.model0_layers[idx](xtar) 
-            pred1 = self.model1_layers[idx](torch.cat((xlat,xtar), 1)) 
-            loss0 = F.mse_loss(pred0[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:], reduction='mean')   
-            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
+        g_loss, var_loss = self.granger_loss(mu, target)
 
+        # combine losses
         loss += self.gamma * g_loss
 
         self.log('loss', {"test": loss}, on_step=False,
@@ -273,10 +261,15 @@ class bvae(pl.LightningModule):
         lr = self.config['optimizer']['lr']
         weight_decay = self.config['optimizer']['weight_decay']
         # build optimizers
-        var_param = list(self.model0_layers.parameters()) +  list(self.model1_layers.parameters()) 
-        var_opt = torch.optim.Adam(var_param, lr=lr, weight_decay=lr)
-        main_param = list(self.encoder_layers.parameters()) + list(self.decoder_layers.parameters())
-        main_param += list(self.mu_layer.parameters()) + list(self.sigma_layer.parameters()) 
+        var_param = list(self.model0_layers.parameters()) + \
+                    list(self.model1_layers.parameters()) 
+        var_opt = torch.optim.Adam(var_param, lr=lr,
+                                   weight_decay=0.01)
+        main_param = list(self.encoder_layers.parameters()) + \
+                list(self.decoder_layers.parameters())
+        main_param += list(self.mu_layer.parameters()) + \
+                list(self.sigma_layer.parameters()) 
         main_param += list(self.output_layer.parameters()) 
-        main_opt = torch.optim.Adam(main_param, lr=lr, weight_decay=weight_decay)
+        main_opt = torch.optim.Adam(main_param, lr=lr, 
+                                    weight_decay=weight_decay)
         return var_opt, main_opt
