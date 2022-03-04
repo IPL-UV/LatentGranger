@@ -18,6 +18,7 @@ from datetime import datetime
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 # Model
 import archs
@@ -45,10 +46,9 @@ def main(args):
         data_config = yaml.load(file, Loader=yaml.FullLoader)
 
 
-
     # Experiment ID
     repo = git.Repo(search_parent_directories=True)
-    if repo.is_dirty():
+    if repo.is_dirty() and not args.nogitcheck:
         kg = input("WARNING: the current repo has not tracked changes\n" + 
               "if you continue, any saved results will" + 
               " not be correctly associated to a commit hash\n" + 
@@ -69,7 +69,6 @@ def main(args):
 
 
     # Build model
-
     if arch_config['processing_mode'] == 'flat':
         input_size = data_config['flat_input_size']
     else:
@@ -102,10 +101,12 @@ def main(args):
                                           save_last=False, save_top_k=1)
 
     early_stopping = EarlyStopping(monitor='val_loss',
-                                   min_delta=0.0, patience=10,
+                                   min_delta=0.0, patience=20,
                                    verbose=False, mode='min', strict=True)
 
-    callbacks = [checkpoint_callback]
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+
+    callbacks = [checkpoint_callback, lr_monitor]
     if args.earlystop:
         callbacks += [early_stopping]
 
@@ -151,6 +152,10 @@ if __name__ == '__main__':
                         type=str, help='experiemnt directory')
     parser.add_argument('--seed', default=-1,
                         type=int, help='seed if >0')
+    parser.add_argument('--nogitcheck', action='store_true',
+                        help='do not check clean git')
+
+
 
     args = parser.parse_args()
     main(args)
