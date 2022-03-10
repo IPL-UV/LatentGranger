@@ -222,7 +222,6 @@ if args.extract:
 
 
 if args.nig:
-
     #baseline = np.zeros(x.shape, dtype="float32")
     
     #baseline = torch.Tensor(baseline)

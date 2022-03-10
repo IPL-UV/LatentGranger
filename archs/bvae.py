@@ -134,7 +134,6 @@ class bvae(pl.LightningModule):
     def elbo(self, x, x_out, mu, sigma):
         kl_loss = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum() / self.NC 
         reconstruction_loss = F.mse_loss(x_out, x, reduction='sum') / self.NC
-        mse_loss = reconstruction_loss #/ torch.numel(x)
         loss = reconstruction_loss + self.beta * kl_loss
         return loss, reconstruction_loss, kl_loss
 
