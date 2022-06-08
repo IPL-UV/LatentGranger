@@ -98,7 +98,7 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(dirpath=checkpoints_dir,
                                           filename='best',
                                           mode='min', monitor='val_loss',
-                                          save_last=False, save_top_k=1)
+                                          save_last=True, save_top_k=1)
 
     early_stopping = EarlyStopping(monitor='val_loss',
                                    min_delta=0.0, patience=20,
@@ -119,7 +119,7 @@ def main(args):
     # Test
     res = trainer.test(ckpt_path='best')
     mse_test = res[0]["mse_loss"]["test"].detach().numpy()
-    granger_test = res[0]["granger_loss"]["test"].detach().numpy()
+    granger_test = res[0]["granger_loss_min"]["test"].detach().numpy()
 
     with open(pathlogfile, "a") as logfile:
         logfile.write(f'{experiment_id},{git_commit_sha},{args.arch},' +

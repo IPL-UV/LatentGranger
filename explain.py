@@ -111,6 +111,8 @@ print("model loaded with chosen checkpoint")
 print(model)
 print(f'gamma: {model.gamma}, maxlag: {model.lag}')
 
+print(f'causalix: {model.causalix}')
+
 #################### load data #########################
 
 with open(f'configs/loaders/{args.loader}.yaml') as file:
@@ -162,7 +164,7 @@ if args.save:
     svpth = os.path.join(savedir, f'{chosen}_latents.tiff')
     plot_latent(mu[:,:], target, svpth)  
 else:
-    plot_latent(mu[:,0:1], target)  
+    plot_latent(mu, target)  
 
 
 ### prepare arrays 
@@ -193,8 +195,8 @@ if args.grad:
         grad = np.zeros(x.shape[1:]) 
         for i in range(latent.shape[1]): 
             mu[i,j].backward(retain_graph = True)
-            grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
-            #grad[i,:] += x.grad.numpy()[0,i,:]
+            #grad[i,:] += np.abs(x.grad.numpy()[0,i,:])
+            grad[i,:] += x.grad.numpy()[0,i,:]
             x.grad.fill_(0.0)
         avg[:,:,j][mask] = np.mean(grad, 0)
         #avg[:,:,j][mask] = np.amax(grad, 0)
@@ -227,7 +229,7 @@ if args.nig:
     #baseline = torch.Tensor(baseline)
 
     baseline = torch.mean(x[0,:,:], 0).expand(x.shape)
-    nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = True)
+    nig = NeuronIntegratedGradients(model, model.mu_layer, multiply_by_inputs = False)
 
     for j in range(latent.shape[-1]):
 
@@ -243,8 +245,8 @@ if args.nig:
         os.makedirs(os.path.join(savedir, f'nig{j}'), exist_ok = True)
         for i in range(attr_maps.shape[1]):
             imgarray = np.zeros(mask.shape)
-            avg_nig += np.abs(attr_maps.detach().numpy()[0,i,:])
-            imgarray[mask] = np.abs(attr_maps.detach().numpy()[0,i,:])
+            avg_nig += attr_maps.detach().numpy()[0,i,:]
+            imgarray[mask] = attr_maps.detach().numpy()[0,i,:]
             img = Image.fromarray(imgarray)
             img.save(os.path.join(savedir, f'nig{j}', f'{i}_.tiff'))
         avg_nig = avg_nig / attr_maps.shape[1]  
@@ -262,16 +264,20 @@ if args.latint:
     latent_max = torch.amax(mu, 0)  
     latent_min = torch.amin(mu, 0)
     std, m = torch.std_mean(mu, 0)
-    base = model.decoder(mu)
+    print(m)
+    print(std)
     for j in range(mu.shape[1]):
+        basemu = mu.clone()
+        #basemu[:,j] = m[j] 
+        base = model.decoder(basemu)
         latent_int_max = mu.clone() 
         latent_int_max[:,j] = latent_max[j]
-        latent_int_min = mu.clone()  
+        latent_int_min = basemu.clone()  
         latent_int_min[:,j] = latent_min[j]
-        latent_int_plus = mu.clone()
-        latent_int_plus[:,j] += 1 * sigma[:,j]
-        latent_int_minus = mu.clone()
-        latent_int_minus[:,j] -= 1 * sigma[:,j]
+        latent_int_plus = basemu.clone()
+        latent_int_plus[:,j] += 2 * sigma[:, j]
+        latent_int_minus = basemu.clone()
+        latent_int_minus[:,j] -= 2 * sigma[:, j]
         out_int_max = model.decoder(latent_int_max)
         out_int_min = model.decoder(latent_int_min)
         out_int_plus = model.decoder(latent_int_plus)

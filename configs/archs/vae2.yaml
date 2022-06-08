@@ -2,7 +2,7 @@ class: 'bvae'
 encoder:
     out_features: [1024, 512, 256, 128]
 latent_dim: 5
-causal_latents: 1
+causal_latents: 5
 decoder:
     out_features: [128, 256, 512, 1024]
 beta: 1

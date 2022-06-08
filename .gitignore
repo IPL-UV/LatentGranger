@@ -1,3 +1,16 @@
+### exclude all R files
+*.R
+
+### exclude all pdf
+*.pdf
+
+
+### exclude all png
+*.png
+
+### exclude all experiments
+exp*
+
 .RData
 .Rhistory
 

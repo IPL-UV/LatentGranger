@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
 # BSD 3-Clause License (see LICENSE file)
 # Copyright (c) Image and Signaling Process Group (ISP) IPL-UV 2021,
 # All rights reserved.
@@ -14,7 +13,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from losses import *
 
 
 class bvae(pl.LightningModule):
@@ -29,9 +27,11 @@ class bvae(pl.LightningModule):
         self.config = config
         self.tpb = tpb
 
+        # index of the most causal latent
+        self.causalix = int(0)
+
         # coefficient for granger regularization
         self.gamma = float(gamma)
-        self.causal_loss = granger_simple_loss
 
         # coefficient for beta-VAE
         self.beta = float(config['beta'])
@@ -66,6 +66,7 @@ class bvae(pl.LightningModule):
         self.mu_layer = nn.Linear(in_, self.latent_dim)
         self.sigma_layer = nn.Linear(in_, self.latent_dim)
 
+        # forecasting layers
         self.model0_layers = nn.ModuleList()
         self.model1_layers = nn.ModuleList()
         for idx in range(self.causal_latents):
@@ -139,7 +140,7 @@ class bvae(pl.LightningModule):
 
 
     def granger_loss(self, mu, target):
-        g_loss = torch.zeros(())
+        g_losses = torch.zeros((self.causal_latents,))
         var_loss = torch.zeros(())
         for idx in range(self.causal_latents):
             xlat = mu[:, idx].reshape((1,1,-1)) 
@@ -151,9 +152,13 @@ class bvae(pl.LightningModule):
             loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:],
                                reduction='mean')   
             var_loss += loss0 + loss1
-            g_loss += torch.log(loss1 + loss0) - torch.log(loss0)
+            #g_losses[idx] +=  loss1 / torch.abs(loss0 - loss1)
+            g_losses[idx] +=  loss1 / loss0
+            #g_losses[idx] +=  loss1 - loss0
+            #g_losses[idx] += (loss1 - loss0) / (loss0)
+            #g_losses[idx] += torch.log(loss1 + loss0) - torch.log(loss0)
 
-        return g_loss, var_loss
+        return g_losses, var_loss
 
 
     def training_step(self, batch, batch_idx):
@@ -178,7 +183,9 @@ class bvae(pl.LightningModule):
 
         #granger loss
         g_loss, var_loss = self.granger_loss(mu, target)
-        loss += self.gamma * g_loss
+        self.causalix = int(torch.argmin(g_loss).numpy())
+        loss += self.gamma * g_loss[self.causalix]
+        #loss += self.gamma * torch.sum(g_loss)
 
         #main gradient step
         main_opt.zero_grad()
@@ -191,8 +198,12 @@ class bvae(pl.LightningModule):
                  on_epoch=True, logger=True)
         self.log('kl_loss', {"train": kl_loss}, on_step=False,
                  on_epoch=True, logger=True)
-        self.log('granger_loss', {"train": g_loss}, on_step=False,
+        self.log('granger_loss_sum', {"train": torch.sum(g_loss)}, on_step=False,
                  on_epoch=True, logger=True)
+        self.log('granger_loss_min', {"train": g_loss[self.causalix]}, on_step=False,
+                 on_epoch=True, logger=True)
+        self.log('causalix', {"train": self.causalix}, on_step=True,
+                 on_epoch=False, logger=True)
         return loss
 
 
@@ -210,7 +221,8 @@ class bvae(pl.LightningModule):
         self.log('forecasting_loss', {"val": var_loss}, on_step=False,
                  on_epoch=True, logger=True)
 
-        loss += self.gamma * g_loss
+        loss += self.gamma * g_loss[self.causalix]
+        #loss += self.gamma *torch.sum(g_loss)
 
         self.log('loss', {"val": loss}, on_step=False,
                  on_epoch=True, logger=True)
@@ -218,10 +230,13 @@ class bvae(pl.LightningModule):
                  on_epoch=True, logger=True)
         self.log('kl_loss', {"val": kl_loss}, on_step=False,
                  on_epoch=True, logger=True)
-        self.log('granger_loss', {"val": g_loss}, on_step=False,
+        self.log('granger_loss_sum', {"val": torch.sum(g_loss)}, on_step=False,
+                 on_epoch=True, logger=True)
+        self.log('granger_loss_min', {"val": g_loss[self.causalix]}, on_step=False,
                  on_epoch=True, logger=True)
         self.log('val_loss', loss)
-        self.log('forecasting_loss_val', var_loss)
+        self.log('val_granger_loss_sum', torch.sum(g_loss))
+        self.log('val_forecasting_loss', var_loss)
         #return var_loss
 
     #def validation_epoch_end(self, validation_step_outputs):
@@ -244,7 +259,8 @@ class bvae(pl.LightningModule):
         g_loss, var_loss = self.granger_loss(mu, target)
 
         # combine losses
-        loss += self.gamma * g_loss
+        loss += self.gamma * g_loss[self.causalix]
+        #loss += self.gamma * torch.sum(g_loss)
 
         self.log('loss', {"test": loss}, on_step=False,
                  on_epoch=True, logger=True)
@@ -252,7 +268,9 @@ class bvae(pl.LightningModule):
                  on_step=False, on_epoch=True, logger=True)
         self.log('kl_loss', {"test": kl_loss}, on_step=False,
                  on_epoch=True, logger=True)
-        self.log('granger_loss', {"test": g_loss}, on_step=False,
+        self.log('granger_loss_sum', {"test": torch.sum(g_loss)}, on_step=False,
+                 on_epoch=True, logger=True)
+        self.log('granger_loss_min', {"test": g_loss[self.causalix]}, on_step=False,
                  on_epoch=True, logger=True)
 
     def configure_optimizers(self):
