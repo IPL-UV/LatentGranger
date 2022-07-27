@@ -1,13 +1,13 @@
 class: 'NDVI' 
 seed_idx: 0
-input_size: [150, 150]
-flat_input_size: 11472 
-root: '../MOD13C1/MOD13C1processed/africa_NDVI_approx/'
-template: 'NDVI_TMSTMP.nc'
+input_size: [360, 720]
+flat_input_size: 57570 
+root: '../MOD13C1/MOD13C1processed/NDVI_approx/'
+template: 'NDVI__TMSTMP.nc'
 train: [2002, 2003, 2004, 2005, 2006, 2007, 2008]
 val:   [2009, 2010, 2011, 2012, 2013]
 test:  [2014, 2015, 2016, 2017, 2018, 2019, 2020]
 batch_size: 1
 tpb: 100
-mask: '../MOD13C1/MOD13C1processed/africa_mask.tif'
+mask: '../MOD13C1/MOD13C1processed/mask.tif'
 root_ENSO: './databases/data/inino34_daily.dat'

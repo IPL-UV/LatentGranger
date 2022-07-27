@@ -26,15 +26,17 @@ class NDVI(torch.utils.data.Dataset):
         self.processing_mode = processing_mode
 
         self.input_size = tuple(config['input_size'])
+        self.flat_input_size = config['flat_input_size']
         # Load Land Cover map
-        self.mask = imread(config['mask']) > 0
+        self.mask = imread(config['mask']) > 0 
 
         # Load time window
         self.tpb = config['tpb']
 
         # self.years = np.linspace(2007, 2017, 1, dtype = int)
         self.years = config[mode]
-        self.days = np.linspace(5, 365, 46, dtype=int)
+        #self.days = np.linspace(5, 365, 46, dtype=int)
+        self.days = np.linspace(1, 353, 23, dtype=int)
 
         # load template
         self.template = config['template']
@@ -52,7 +54,7 @@ class NDVI(torch.utils.data.Dataset):
         # --- COMPLETE ---
         ENSO = np.loadtxt(self.config['root_ENSO'], comments='#')
         # Mean filter to adapt ENSO resolution to feature resolution
-        ENSO[:, 1] = uniform_filter1d(ENSO[:, 1], 8)
+        ENSO[:, 1] = uniform_filter1d(ENSO[:, 1], 16)
         # Select time period for experiments
         self.ENSO = []
         for year in self.years:
@@ -96,17 +98,18 @@ class NDVI(torch.utils.data.Dataset):
 
         # NDVI
         img_paths = self.paths[index:index + self.tpb]
-        ndvi = np.zeros((self.tpb,) + self.input_size + (1,), dtype="float32")
+        if self.processing_mode == 'flat':
+            ndvi = np.zeros((self.tpb,) + (self.flat_input_size,), dtype="float32")
+        else:
+            ndvi = np.zeros((self.tpb,) + self.input_size + (1,), dtype="float32")
+
         for j, path in enumerate(img_paths):
             data = nc.Dataset(path)
             x = np.array(data['ndvi'])
-            x[x == data['ndvi']._FillValue] = 0.0  # set NA to 0.0
-            ndvi[j, :, :, 0] = x
-
-        # flatten if processing_mode is flat
-        if self.processing_mode == 'flat':
-            ndvi = np.reshape(ndvi, (self.tpb, -1))
-            ndvi = ndvi[:, np.ndarray.flatten(self.mask)]
+            if self.processing_mode == 'flat':
+                ndvi[j, :] = x[self.mask]
+            else:
+                ndvi[j, :, :, 0] = x
 
         ndvi = torch.Tensor(ndvi)
         return ndvi, enso
