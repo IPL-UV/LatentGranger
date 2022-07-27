@@ -28,7 +28,7 @@ class bvae(pl.LightningModule):
         self.tpb = tpb
 
         # index of the most causal latent
-        self.causalix = int(0)
+        self.causalix = nn.parameter.Parameter(torch.tensor(0, dtype = int), False)
 
         # coefficient for granger regularization
         self.gamma = float(gamma)
@@ -117,12 +117,14 @@ class bvae(pl.LightningModule):
 
         mu, sigma = self.encoder(x) 
 
+
         # sampling
         x = mu + sigma * self.N.sample(mu.shape)
 
         # Latent representation
         # Reshape to (b_s, tpb, latent_dim)
         x_latent = torch.reshape(x, (1, ) + x.shape)
+
 
  
         x = self.decoder(x) 
@@ -152,11 +154,7 @@ class bvae(pl.LightningModule):
             loss1 = F.mse_loss(pred1[:,:,:-1], xlat[:,:,self.lag:],
                                reduction='mean')   
             var_loss += loss0 + loss1
-            #g_losses[idx] +=  loss1 / torch.abs(loss0 - loss1)
             g_losses[idx] +=  loss1 / loss0
-            #g_losses[idx] +=  loss1 - loss0
-            #g_losses[idx] += (loss1 - loss0) / (loss0)
-            #g_losses[idx] += torch.log(loss1 + loss0) - torch.log(loss0)
 
         return g_losses, var_loss
 
@@ -183,8 +181,8 @@ class bvae(pl.LightningModule):
 
         #granger loss
         g_loss, var_loss = self.granger_loss(mu, target)
-        self.causalix = int(torch.argmin(g_loss).numpy())
-        loss += self.gamma * g_loss[self.causalix]
+        self.causalix = nn.Parameter(torch.argmin(g_loss), False)
+        loss += self.gamma * g_loss[int(self.causalix.numpy())]
         #loss += self.gamma * torch.sum(g_loss)
 
         #main gradient step
@@ -200,7 +198,7 @@ class bvae(pl.LightningModule):
                  on_epoch=True, logger=True)
         self.log('granger_loss_sum', {"train": torch.sum(g_loss)}, on_step=False,
                  on_epoch=True, logger=True)
-        self.log('granger_loss_min', {"train": g_loss[self.causalix]}, on_step=False,
+        self.log('granger_loss_min', {"train": g_loss[int(self.causalix.numpy())]}, on_step=False,
                  on_epoch=True, logger=True)
         self.log('causalix', {"train": self.causalix}, on_step=True,
                  on_epoch=False, logger=True)
@@ -221,7 +219,7 @@ class bvae(pl.LightningModule):
         self.log('forecasting_loss', {"val": var_loss}, on_step=False,
                  on_epoch=True, logger=True)
 
-        loss += self.gamma * g_loss[self.causalix]
+        loss += self.gamma * g_loss[int(self.causalix.numpy())]
         #loss += self.gamma *torch.sum(g_loss)
 
         self.log('loss', {"val": loss}, on_step=False,
@@ -232,17 +230,12 @@ class bvae(pl.LightningModule):
                  on_epoch=True, logger=True)
         self.log('granger_loss_sum', {"val": torch.sum(g_loss)}, on_step=False,
                  on_epoch=True, logger=True)
-        self.log('granger_loss_min', {"val": g_loss[self.causalix]}, on_step=False,
+        self.log('granger_loss_min', {"val": g_loss[int(self.causalix.numpy())]}, on_step=False,
                  on_epoch=True, logger=True)
         self.log('val_loss', loss)
         self.log('val_granger_loss_sum', torch.sum(g_loss))
         self.log('val_forecasting_loss', var_loss)
         #return var_loss
-
-    #def validation_epoch_end(self, validation_step_outputs):
-    #    var_loss = torch.stack(validation_step_outputs).mean()
-    #    schd = self.lr_schedulers()
-    #    schd.step(var_loss) 
 
 
     def test_step(self, batch, idx):
@@ -259,7 +252,7 @@ class bvae(pl.LightningModule):
         g_loss, var_loss = self.granger_loss(mu, target)
 
         # combine losses
-        loss += self.gamma * g_loss[self.causalix]
+        loss += self.gamma * g_loss[int(self.causalix,numpy())]
         #loss += self.gamma * torch.sum(g_loss)
 
         self.log('loss', {"test": loss}, on_step=False,
@@ -270,7 +263,7 @@ class bvae(pl.LightningModule):
                  on_epoch=True, logger=True)
         self.log('granger_loss_sum', {"test": torch.sum(g_loss)}, on_step=False,
                  on_epoch=True, logger=True)
-        self.log('granger_loss_min', {"test": g_loss[self.causalix]}, on_step=False,
+        self.log('granger_loss_min', {"test": g_loss[int(self.causalix.numpy())]}, on_step=False,
                  on_epoch=True, logger=True)
 
     def configure_optimizers(self):
