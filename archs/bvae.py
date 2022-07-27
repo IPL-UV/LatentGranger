@@ -252,7 +252,7 @@ class bvae(pl.LightningModule):
         g_loss, var_loss = self.granger_loss(mu, target)
 
         # combine losses
-        loss += self.gamma * g_loss[int(self.causalix,numpy())]
+        loss += self.gamma * g_loss[int(self.causalix.numpy())]
         #loss += self.gamma * torch.sum(g_loss)
 
         self.log('loss', {"test": loss}, on_step=False,
