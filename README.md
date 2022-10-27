@@ -47,3 +47,6 @@ be specified with `-t` (timepoint) and `-c` (checkpoint name).
 ```
 python3 explain.py -d toy --extract --nig --grad --save
 ```
+
+## Acknowledgements
+This work was supported by the European Research Council (ERC) Synergy Grant “Understanding and Modelling the Earth System with Machine Learning (USMILE)” under Grant Agreement No 855187.
